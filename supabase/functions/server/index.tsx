@@ -628,7 +628,7 @@ app.get("/make-server-549f93eb/orders", async (c) => {
   }
 });
 
-// Update order status (admin only)
+// Update order status (admin can update any, owner can update if pending)
 app.put("/make-server-549f93eb/orders/:orderId", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
@@ -638,11 +638,6 @@ app.put("/make-server-549f93eb/orders/:orderId", async (c) => {
 
   try {
     const userProfile = await kv.get(`user:${user.id}`);
-
-    if (userProfile?.role !== 'admin') {
-      return c.json({ error: 'Admin access required' }, 403);
-    }
-
     const orderId = c.req.param('orderId');
     const updates = await c.req.json();
 
@@ -652,9 +647,28 @@ app.put("/make-server-549f93eb/orders/:orderId", async (c) => {
       return c.json({ error: 'Order not found' }, 404);
     }
 
+    const isAdmin = userProfile?.role === 'admin';
+    const isOwner = existing.userId === user.id;
+
+    if (!isAdmin && !isOwner) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+
+    if (!isAdmin && existing.status !== 'pending') {
+      return c.json({ error: 'Cannot update order after it has been processed' }, 400);
+    }
+
+    // If owner, recalculate remaining amount if they are changing partial payment, etc.
+    const remainingAmount = updates.paymentType === 'partial' 
+      ? (updates.discountedTotal - (updates.partialAmount || 0)) 
+      : existing.paymentType === 'partial' 
+        ? (updates.discountedTotal - (existing.partialAmount || 0)) 
+        : 0;
+
     const orderData = {
       ...existing,
       ...updates,
+      remainingAmount: updates.discountedTotal !== undefined ? remainingAmount : existing.remainingAmount,
       updatedAt: new Date().toISOString()
     };
 

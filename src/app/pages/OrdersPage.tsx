@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Badge, Button } from '@figma/astraui';
-import { X, Edit3, Package, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { X, Edit3, Package, Clock, CheckCircle, XCircle, Plus, Minus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { AppNav } from '../components/AppNav';
@@ -34,6 +34,9 @@ export function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [cancellingOrder, setCancellingOrder] = useState<string | null>(null);
   const [showCancelAnimation, setShowCancelAnimation] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [editedItems, setEditedItems] = useState<any[]>([]);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -77,6 +80,49 @@ export function OrdersPage() {
       toast('Failed to cancel order');
     } finally {
       setTimeout(() => setCancellingOrder(null), 1500);
+    }
+  };
+
+  const handleUpdateItemQty = (productId: string, delta: number) => {
+    setEditedItems(prev => prev.map(item => {
+      if (item.productId === productId) {
+        const newQty = Math.max(1, item.quantity + delta);
+        return { ...item, quantity: newQty };
+      }
+      return item;
+    }));
+  };
+
+  const handleRemoveItem = (productId: string) => {
+    if (editedItems.length <= 1) {
+      toast('An order must have at least one product. If you wish to cancel this order completely, please cancel the order instead.');
+      return;
+    }
+    setEditedItems(prev => prev.filter(item => item.productId !== productId));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingOrder || !accessToken) return;
+    setIsSavingEdit(true);
+
+    const editedTotal = editedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const discountPercent = editingOrder.total > 0 ? ((editingOrder.total - editingOrder.discountedTotal) / editingOrder.total) : 0;
+    const editedDiscountedTotal = editedTotal - (editedTotal * discountPercent);
+
+    try {
+      await api.updateOrder(accessToken, editingOrder.id, {
+        items: editedItems,
+        total: editedTotal,
+        discountedTotal: editedDiscountedTotal,
+      });
+      toast('Order updated successfully!');
+      setEditingOrder(null);
+      loadOrders();
+    } catch (error) {
+      console.error('Error updating order:', error);
+      toast('Failed to update order. Please try again.');
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -309,8 +355,9 @@ export function OrdersPage() {
                           size="small"
                           iconStart={<Edit3 size={16} />}
                           onClick={() => {
-                            toast('Redirecting to cart to edit order...');
-                            navigate('/cart');
+                            setEditingOrder(order);
+                            setEditedItems(order.items.map(item => ({ ...item })));
+                            toast('Opening order editor...');
                           }}
                         >
                           Edit Order
@@ -346,6 +393,167 @@ export function OrdersPage() {
           )}
         </div>
       </main>
+
+      {/* Edit Order Modal */}
+      <AnimatePresence>
+        {editingOrder && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingOrder(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+
+            {/* Modal Card */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg rounded-[var(--radius-lg)] border p-6 flex flex-col gap-6 shadow-2xl overflow-hidden"
+              style={{
+                backgroundColor: 'var(--color-card)',
+                borderColor: 'var(--color-border)',
+              }}
+            >
+              {/* Header */}
+              <div className="flex justify-between items-center border-b pb-4" style={{ borderColor: 'var(--color-border)' }}>
+                <div>
+                  <h2 className="text-xl font-medium" style={{ color: 'var(--color-card-foreground)' }}>
+                    Edit Order Items
+                  </h2>
+                  <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+                    Order #{editingOrder.id.split(':')[1].slice(0, 8)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEditingOrder(null)}
+                  className="p-1.5 rounded-full hover:bg-[var(--color-muted)] transition-colors"
+                  style={{ color: 'var(--color-muted-foreground)' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Items List */}
+              <div className="flex-1 max-h-[350px] overflow-y-auto pr-1 flex flex-col gap-4">
+                {editedItems.map((item, idx) => (
+                  <div
+                    key={item.productId || idx}
+                    className="flex justify-between items-center p-3 rounded-[var(--radius-md)] border"
+                    style={{
+                      borderColor: 'var(--color-border)',
+                      backgroundColor: 'var(--color-muted)',
+                    }}
+                  >
+                    <div className="flex-1 min-w-0 pr-3">
+                      <p className="font-medium truncate" style={{ color: 'var(--color-card-foreground)' }}>
+                        {item.name}
+                      </p>
+                      <p className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>
+                        {formatCurrency(item.price)}
+                      </p>
+                    </div>
+
+                    {/* Quantity Controls */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center border rounded-[var(--radius-md)] bg-[var(--color-background)] overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateItemQty(item.productId, -1)}
+                          className="p-2 hover:bg-[var(--color-muted)] active:scale-95 transition-all text-xs"
+                          style={{ color: 'var(--color-foreground)' }}
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span className="px-3 font-semibold text-sm min-w-[24px] text-center" style={{ color: 'var(--color-foreground)' }}>
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateItemQty(item.productId, 1)}
+                          className="p-2 hover:bg-[var(--color-muted)] active:scale-95 transition-all text-xs"
+                          style={{ color: 'var(--color-foreground)' }}
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+
+                      {/* Remove Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(item.productId)}
+                        className="p-2 text-destructive hover:bg-destructive/10 rounded-[var(--radius-md)] transition-colors active:scale-95"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Totals Recalculation Summary */}
+              <div className="border-t pt-4 space-y-2.5" style={{ borderColor: 'var(--color-border)' }}>
+                {(() => {
+                  const editedTotal = editedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+                  const discountPercent = editingOrder.total > 0 ? ((editingOrder.total - editingOrder.discountedTotal) / editingOrder.total) : 0;
+                  const editedDiscountAmount = editedTotal * discountPercent;
+                  const editedDiscountedTotal = editedTotal - editedDiscountAmount;
+
+                  return (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span style={{ color: 'var(--color-muted-foreground)' }}>Subtotal</span>
+                        <span className="font-medium" style={{ color: 'var(--color-card-foreground)' }}>
+                          {formatCurrency(editedTotal)}
+                        </span>
+                      </div>
+                      {editingOrder.couponCode && (
+                        <div className="flex justify-between text-sm">
+                          <span style={{ color: 'var(--color-muted-foreground)' }}>
+                            Discount ({editingOrder.couponCode})
+                          </span>
+                          <span className="font-medium" style={{ color: 'var(--color-primary)' }}>
+                            -{formatCurrency(editedDiscountAmount)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pt-2.5 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                        <span className="text-base font-semibold" style={{ color: 'var(--color-card-foreground)' }}>
+                          New Total
+                        </span>
+                        <span className="text-xl font-bold" style={{ color: 'var(--color-card-foreground)' }}>
+                          {formatCurrency(editedDiscountedTotal)}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end pt-2">
+                <Button
+                  variant="neutral"
+                  onClick={() => setEditingOrder(null)}
+                  disabled={isSavingEdit}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleSaveEdit}
+                  disabled={isSavingEdit || editedItems.length === 0}
+                >
+                  {isSavingEdit ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router';
 import { Button, InputField } from '@figma/astraui';
 import { toast } from 'sonner';
 import { LoginSuccessAnimation } from '../components/LoginSuccessAnimation';
+import { PlayPointsMatrixRain } from '../components/PlayPointsMatrixRain';
 import { useAuth } from '../context/AuthContext';
 
 export function LoginPage() {
@@ -47,9 +48,10 @@ export function LoginPage() {
   };
 
   return (
-    <div className="size-full flex items-center justify-center p-6" style={{ backgroundColor: 'var(--color-background)' }}>
+    <div className="size-full flex items-center justify-center p-6 relative overflow-hidden" style={{ backgroundColor: 'var(--color-background)' }}>
+      <PlayPointsMatrixRain />
       <LoginSuccessAnimation show={showSuccess} />
-      <div className="w-full max-w-md rounded-[var(--radius-lg)] border p-8 flex flex-col gap-6" style={{
+      <div className="w-full max-w-md rounded-[var(--radius-lg)] border p-8 flex flex-col gap-6 z-10" style={{
         backgroundColor: 'var(--color-card)',
         borderColor: 'var(--color-border)'
       }}>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { Button, InputField } from '@figma/astraui';
 import { toast } from 'sonner';
+import { PlayPointsMatrixRain } from '../components/PlayPointsMatrixRain';
 import { useAuth } from '../context/AuthContext';
 
 export function SignupPage() {
@@ -36,8 +37,9 @@ export function SignupPage() {
   };
 
   return (
-    <div className="size-full bg-brand-tertiary flex items-center justify-center p-2xl overflow-auto">
-      <div className="w-full max-w-md bg-surface-bg rounded-corner-lg p-xl flex flex-col gap-xl my-2xl">
+    <div className="size-full bg-brand-tertiary flex items-center justify-center p-2xl overflow-auto relative">
+      <PlayPointsMatrixRain />
+      <div className="w-full max-w-md bg-surface-bg rounded-corner-lg p-xl flex flex-col gap-xl my-2xl z-10">
         <div className="flex flex-col gap-xs text-center">
           <h1 className="text-text-primary">Create Account</h1>
           <p className="text-text-secondary">Join us to start shopping</p>

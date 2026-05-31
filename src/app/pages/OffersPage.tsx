@@ -1,14 +1,25 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '@figma/astraui';
-import { Gift, Star, Zap, Tag } from 'lucide-react';
+import { Gift, Sparkles, ShieldAlert, ArrowRight } from 'lucide-react';
 import { AppNav } from '../components/AppNav';
+import { ScrollProgress } from '../components/ScrollProgress';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../../utils/api';
 import { motion } from 'motion/react';
+
+interface Offer {
+  id: string;
+  title: string;
+  description: string;
+  discount: string;
+}
 
 export function OffersPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -16,151 +27,147 @@ export function OffersPage() {
     }
   }, [user, authLoading, navigate]);
 
+  useEffect(() => {
+    if (user) {
+      loadOffers();
+    }
+  }, [user]);
+
+  const loadOffers = async () => {
+    try {
+      const { offers: data } = await api.getOffers();
+      if (data) {
+        setOffers(data);
+      }
+    } catch (error) {
+      console.error('Error loading offers:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (authLoading || !user) {
     return null;
   }
 
+  const isAdmin = user.role === 'admin';
+
   return (
-    <div className="size-full flex bg-brand-tertiary">
+    <div className="size-full flex" style={{ backgroundColor: 'var(--color-background)' }}>
+      <ScrollProgress />
       <AppNav />
 
-      <main className="flex-1 overflow-auto p-2xl">
-        <div className="flex flex-col gap-xl max-w-5xl">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="flex flex-col gap-xs"
-          >
-            <h1 className="text-text-primary">Seasonal Welcome Offers</h1>
-            <p className="text-text-secondary">
-              Exclusive deals and discounts just for you!
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-xl">
+      <main className="flex-1 overflow-auto">
+        {/* Header */}
+        <div className="sticky top-0 z-20 backdrop-blur-lg border-b" style={{
+          backgroundColor: 'var(--color-background)',
+          borderColor: 'var(--color-border)'
+        }}>
+          <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-gradient-to-br from-brand-primary to-brand-secondary rounded-corner-lg p-xl flex flex-col gap-lg text-on-brand"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
             >
-              <div className="flex items-center gap-md">
-                <div className="bg-surface-bg text-brand-primary rounded-corner-full p-md">
-                  <Gift size={32} />
-                </div>
-                <h2 className="text-on-brand">Welcome Bonus</h2>
-              </div>
-
-              <div className="flex flex-col gap-xs">
-                <p className="text-3xl font-medium">20% OFF</p>
-                <p className="text-on-brand opacity-90">
-                  Your first purchase with code <span className="font-mono font-medium">WELCOME20</span>
-                </p>
-              </div>
-
-              <Button variant="neutral" onClick={() => navigate('/products')}>
-                Start Shopping
-              </Button>
+              <h1 className="text-2xl font-medium" style={{ color: 'var(--color-foreground)' }}>
+                Seasonal Offers
+              </h1>
+              <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
+                Exclusive deals and discount events curated for you
+              </p>
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-surface-bg rounded-corner-lg p-xl flex flex-col gap-lg"
-            >
-              <div className="flex items-center gap-md">
-                <div className="bg-brand-secondary text-brand-primary rounded-corner-full p-md">
-                  <Star size={32} />
-                </div>
-                <h2 className="text-text-primary">Premium Bundle</h2>
-              </div>
-
-              <div className="flex flex-col gap-xs">
-                <p className="text-text-primary">
-                  Get 3 products and save 30% on the total price!
-                </p>
-                <p className="text-text-secondary text-sm">
-                  Mix and match any digital products
-                </p>
-              </div>
-
-              <Button variant="primary" onClick={() => navigate('/products')}>
-                View Products
-              </Button>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-surface-bg rounded-corner-lg p-xl flex flex-col gap-lg"
-            >
-              <div className="flex items-center gap-md">
-                <div className="bg-brand-secondary text-brand-primary rounded-corner-full p-md">
-                  <Zap size={32} />
-                </div>
-                <h2 className="text-text-primary">Flash Sale</h2>
-              </div>
-
-              <div className="flex flex-col gap-xs">
-                <p className="text-text-primary">
-                  Limited time offer - 15% off on all memberships!
-                </p>
-                <p className="text-text-secondary text-sm">
-                  Use code <span className="font-mono text-brand-primary">FLASH15</span>
-                </p>
-              </div>
-
-              <Button variant="primary" onClick={() => navigate('/checkout')}>
-                Shop Now
-              </Button>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="bg-surface-bg rounded-corner-lg p-xl flex flex-col gap-lg"
-            >
-              <div className="flex items-center gap-md">
-                <div className="bg-brand-secondary text-brand-primary rounded-corner-full p-md">
-                  <Tag size={32} />
-                </div>
-                <h2 className="text-text-primary">Loyalty Rewards</h2>
-              </div>
-
-              <div className="flex flex-col gap-xs">
-                <p className="text-text-primary">
-                  Earn points with every purchase and unlock exclusive deals!
-                </p>
-                <p className="text-text-secondary text-sm">
-                  Your current points: <span className="text-brand-primary font-medium">0</span>
-                </p>
-              </div>
-
-              <Button variant="neutral" onClick={() => navigate('/orders')}>
-                View History
-              </Button>
-            </motion.div>
+            {isAdmin && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+              >
+                <Button
+                  variant="primary"
+                  iconStart={<ShieldAlert size={16} />}
+                  onClick={() => navigate('/admin')}
+                >
+                  Manage Offers
+                </Button>
+              </motion.div>
+            )}
           </div>
+        </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="bg-surface-bg rounded-corner-lg p-xl flex flex-col gap-lg"
-          >
-            <h2 className="text-text-primary">How to Use Your Offers</h2>
-            <ol className="flex flex-col gap-md text-text-secondary list-decimal list-inside">
-              <li>Browse our digital products catalog</li>
-              <li>Add your favorite items to the cart</li>
-              <li>At checkout, enter your coupon code</li>
-              <li>See your discount applied instantly!</li>
-              <li>Complete your order and enjoy your savings</li>
-            </ol>
-          </motion.div>
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((n) => (
+                <div
+                  key={n}
+                  className="animate-pulse rounded-[var(--radius-lg)] border p-6 h-[200px]"
+                  style={{
+                    backgroundColor: 'var(--color-card)',
+                    borderColor: 'var(--color-border)'
+                  }}
+                />
+              ))}
+            </div>
+          ) : offers.length === 0 ? (
+            <div className="text-center py-20">
+              <Gift className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--color-muted-foreground)' }} />
+              <p className="text-lg mb-2" style={{ color: 'var(--color-foreground)' }}>
+                No Active Offers Right Now
+              </p>
+              <p className="mb-6 max-w-md mx-auto" style={{ color: 'var(--color-muted-foreground)' }}>
+                Check back later! Our admins post exciting new promotions frequently.
+              </p>
+              <Button variant="primary" onClick={() => navigate('/products')}>
+                Browse Products
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {offers.map((offer, index) => (
+                  <motion.div
+                    key={offer.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="relative rounded-[var(--radius-lg)] border p-6 flex flex-col gap-4 shadow-sm overflow-hidden"
+                    style={{
+                      backgroundColor: 'var(--color-card)',
+                      borderColor: 'var(--color-border)'
+                    }}
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-primary/10 to-transparent pointer-events-none rounded-bl-full" />
+                    
+                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-[var(--radius-md)] bg-primary/10 border border-primary/20">
+                      <span className="text-2xl font-bold text-primary">{offer.discount}</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1 flex-1">
+                      <h3 className="text-lg font-medium" style={{ color: 'var(--color-card-foreground)' }}>
+                        {offer.title}
+                      </h3>
+                      <p className="text-sm" style={{ color: 'var(--color-muted-foreground)', lineHeight: '1.5' }}>
+                        {offer.description}
+                      </p>
+                    </div>
+
+                    <div className="pt-4 border-t flex justify-between items-center" style={{ borderColor: 'var(--color-border)' }}>
+                      <span className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1">
+                        <Sparkles size={12} /> Active Deal
+                      </span>
+                      <Button
+                        variant="subtle"
+                        size="small"
+                        iconEnd={<ArrowRight size={14} />}
+                        onClick={() => navigate('/products')}
+                      >
+                        Shop Now
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

@@ -127,12 +127,18 @@ export function OrdersPage() {
   };
 
   const canCancelOrder = (order: Order) => {
+    if (user?.role === 'admin') {
+      return order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'delivered';
+    }
     // Users can only cancel orders that are still pending
     // Once admin starts processing, they cannot cancel
     return order.status === 'pending';
   };
 
   const canEditOrder = (order: Order) => {
+    if (user?.role === 'admin') {
+      return order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'delivered';
+    }
     return order.status === 'pending' && order.paymentStatus === 'pending';
   };
 

@@ -139,16 +139,6 @@ export function SignupPage() {
           </Link>
         </div>
 
-        {/* Admin hint */}
-        <div className="bg-brand-secondary rounded-corner-md p-lg">
-          <p className="text-sm text-text-primary">
-            <span className="font-medium">Create Admin Account:</span> Use email{' '}
-            <code className="bg-bg-faint px-sm py-xs rounded text-brand-primary">
-              hydrabus45@gmail.com
-            </code>{' '}
-            to automatically get admin access.
-          </p>
-        </div>
       </div>
     </div>
   );

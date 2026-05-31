@@ -1,0 +1,22 @@
+{
+  "offers": [
+    {
+      "id": "1",
+      "title": "Limited Time Offer",
+      "description": "Get exclusive access to our premium digital products with special discounts",
+      "discount": "50%"
+    },
+    {
+      "id": "2",
+      "title": "Bundle Deal",
+      "description": "Purchase multiple products and save even more on your order",
+      "discount": "30%"
+    },
+    {
+      "id": "3",
+      "title": "First Purchase",
+      "description": "New customers get a special welcome discount on their first order",
+      "discount": "20%"
+    }
+  ]
+}

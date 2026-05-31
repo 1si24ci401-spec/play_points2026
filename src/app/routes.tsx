@@ -11,6 +11,7 @@ import { AdminDashboard } from "./pages/AdminDashboard";
 import { ProfilePage } from "./pages/ProfilePage";
 import { OffersPage } from "./pages/OffersPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
       { path: "profile", Component: ProfilePage },
       { path: "offers", Component: OffersPage },
       { path: "admin", Component: AdminDashboard },
+      { path: "auth/callback", Component: AuthCallbackPage },
       { path: "*", Component: NotFoundPage },
     ],
   },

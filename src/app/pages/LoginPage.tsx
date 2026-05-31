@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { Button, InputField } from '@figma/astraui';
 import { toast } from 'sonner';
 import { LoginSuccessAnimation } from '../components/LoginSuccessAnimation';
 import { useAuth } from '../context/AuthContext';
 import { createClient } from '../../utils/supabase/client';
-import { api } from '../../utils/api';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -15,32 +14,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // Handle OAuth callback
-  useEffect(() => {
-    const handleOAuthCallback = async () => {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
 
-      if (session) {
-        try {
-          // Get or create user profile
-          const profile = await api.getProfile(session.access_token);
-
-          // Redirect based on role
-          if (profile.user?.role === 'admin') {
-            navigate('/admin', { replace: true });
-          } else {
-            navigate('/products', { replace: true });
-          }
-        } catch (error) {
-          console.error('Profile fetch error:', error);
-          navigate('/products', { replace: true });
-        }
-      }
-    };
-
-    handleOAuthCallback();
-  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +55,7 @@ export function LoginPage() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/login`,
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -91,14 +65,13 @@ export function LoginPage() {
 
       if (error) {
         console.error('Google sign in error:', error);
-        toast('Google sign in is not configured. Please complete setup at https://supabase.com/docs/guides/auth/social-login/auth-google');
+        toast('Google sign in failed. Please ensure Google OAuth is enabled in Supabase.');
       } else if (data?.url) {
-        // OAuth flow initiated successfully
         window.location.href = data.url;
       }
     } catch (error) {
       console.error('Google sign in error:', error);
-      toast('Google sign in failed');
+      toast('Google sign in failed. Please try again.');
     }
   };
 

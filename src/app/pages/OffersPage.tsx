@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '@figma/astraui';
-import { Gift, Sparkles, ShieldAlert, ArrowRight } from 'lucide-react';
+import { Gift, Sparkles, ShieldAlert, ArrowRight, Edit } from 'lucide-react';
 import { AppNav } from '../components/AppNav';
 import { ScrollProgress } from '../components/ScrollProgress';
+import { OffersEditModal } from '../components/OffersEditModal';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../../utils/api';
 import { motion } from 'motion/react';
+import { toast } from 'sonner';
 
 interface Offer {
   id: string;
@@ -17,9 +19,10 @@ interface Offer {
 
 export function OffersPage() {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, accessToken } = useAuth();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -43,6 +46,19 @@ export function OffersPage() {
       console.error('Error loading offers:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveOffers = async (updatedOffers: Offer[]) => {
+    if (!accessToken) return;
+    try {
+      await api.updateOffers(accessToken, updatedOffers);
+      setOffers(updatedOffers);
+      toast('Offers updated successfully');
+      loadOffers();
+    } catch (error) {
+      console.error('Error saving offers:', error);
+      toast('Failed to update offers');
     }
   };
 
@@ -80,13 +96,21 @@ export function OffersPage() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-3"
               >
                 <Button
                   variant="primary"
+                  iconStart={<Edit size={16} />}
+                  onClick={() => setIsEditModalOpen(true)}
+                >
+                  Edit Page Content
+                </Button>
+                <Button
+                  variant="neutral"
                   iconStart={<ShieldAlert size={16} />}
                   onClick={() => navigate('/admin')}
                 >
-                  Manage Offers
+                  Admin Panel
                 </Button>
               </motion.div>
             )}
@@ -154,14 +178,26 @@ export function OffersPage() {
                       <span className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-1">
                         <Sparkles size={12} /> Active Deal
                       </span>
-                      <Button
-                        variant="subtle"
-                        size="small"
-                        iconEnd={<ArrowRight size={14} />}
-                        onClick={() => navigate('/products')}
-                      >
-                        Shop Now
-                      </Button>
+                      <div className="flex gap-2">
+                        {isAdmin && (
+                          <Button
+                            variant="neutral"
+                            size="small"
+                            iconStart={<Edit size={14} />}
+                            onClick={() => setIsEditModalOpen(true)}
+                          >
+                            Edit
+                          </Button>
+                        )}
+                        <Button
+                          variant="subtle"
+                          size="small"
+                          iconEnd={<ArrowRight size={14} />}
+                          onClick={() => navigate('/products')}
+                        >
+                          Shop Now
+                        </Button>
+                      </div>
                     </div>
                   </motion.div>
                 ))}
@@ -170,6 +206,14 @@ export function OffersPage() {
           )}
         </div>
       </main>
+
+      {/* Admin Inline Offers Editor Modal */}
+      <OffersEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        offers={offers}
+        onSave={handleSaveOffers}
+      />
     </div>
   );
 }

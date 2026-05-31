@@ -4,7 +4,6 @@ import { Button, InputField } from '@figma/astraui';
 import { toast } from 'sonner';
 import { LoginSuccessAnimation } from '../components/LoginSuccessAnimation';
 import { useAuth } from '../context/AuthContext';
-import { createClient } from '../../utils/supabase/client';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -13,8 +12,6 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,32 +43,6 @@ export function LoginPage() {
         toast(error.message || 'Login failed. Please try again.');
       }
       setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        }
-      });
-
-      if (error) {
-        console.error('Google sign in error:', error);
-        toast('Google sign in failed. Please ensure Google OAuth is enabled in Supabase.');
-      } else if (data?.url) {
-        window.location.href = data.url;
-      }
-    } catch (error) {
-      console.error('Google sign in error:', error);
-      toast('Google sign in failed. Please try again.');
     }
   };
 
@@ -115,21 +86,6 @@ export function LoginPage() {
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
-
-        <div className="flex items-center gap-4">
-          <div className="flex-1 h-px" style={{ backgroundColor: 'var(--color-border)' }} />
-          <span className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>OR</span>
-          <div className="flex-1 h-px" style={{ backgroundColor: 'var(--color-border)' }} />
-        </div>
-
-        <Button
-          variant="neutral"
-          onClick={handleGoogleSignIn}
-          disabled={loading}
-          className="w-full"
-        >
-          Continue with Google
-        </Button>
 
         <div className="text-center" style={{ color: 'var(--color-muted-foreground)' }}>
           Don't have an account?{' '}

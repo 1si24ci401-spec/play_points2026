@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router';
 import { Button, InputField } from '@figma/astraui';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
-import { createClient } from '../../utils/supabase/client';
 
 export function SignupPage() {
   const navigate = useNavigate();
@@ -13,8 +12,6 @@ export function SignupPage() {
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
-
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,32 +32,6 @@ export function SignupPage() {
       console.error('Signup error:', error);
       toast('Signup failed. Please try again.');
       setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        }
-      });
-
-      if (error) {
-        console.error('Google sign in error:', error);
-        toast('Google sign in failed. Please ensure Google OAuth is enabled in Supabase.');
-      } else if (data?.url) {
-        window.location.href = data.url;
-      }
-    } catch (error) {
-      console.error('Google sign in error:', error);
-      toast('Google sign in failed. Please try again.');
     }
   };
 
@@ -116,21 +87,6 @@ export function SignupPage() {
             {loading ? 'Creating account...' : 'Create Account'}
           </Button>
         </form>
-
-        <div className="flex items-center gap-md">
-          <div className="flex-1 h-px bg-border-primary" />
-          <span className="text-text-secondary text-sm">OR</span>
-          <div className="flex-1 h-px bg-border-primary" />
-        </div>
-
-        <Button
-          variant="neutral"
-          onClick={handleGoogleSignIn}
-          disabled={loading}
-          className="w-full"
-        >
-          Continue with Google
-        </Button>
 
         <div className="text-center text-text-secondary">
           Already have an account?{' '}

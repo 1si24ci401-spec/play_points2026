@@ -10,14 +10,21 @@ import { AnimatedCard } from '../components/AnimatedCard';
 import { RevealText } from '../components/RevealText';
 import { ScrollProgress } from '../components/ScrollProgress';
 import { OffersEditModal } from '../components/OffersEditModal';
+import { NotificationModal } from '../components/NotificationModal';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../../utils/api';
+import { apiCall } from '../../utils/api';
 import { format } from 'date-fns';
+import { UsersTab } from '../components/UsersTab';
+import { StatsTab } from '../components/StatsTab';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
   const { user, loading: authLoading, accessToken } = useAuth();
-  const [activeTab, setActiveTab] = useState<'products' | 'coupons' | 'orders' | 'offers'>('products');
+  const [showEventsModal, setShowEventsModal] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notificationEvents, setNotificationEvents] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'products' | 'coupons' | 'orders' | 'offers' | 'users' | 'stats'>('products');
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'admin')) {
@@ -86,6 +93,18 @@ export function AdminDashboard() {
               >
                 Orders
               </TabButton>
+              <TabButton
+                active={activeTab === 'users'}
+                onClick={() => setActiveTab('users')}
+              >
+                Users
+              </TabButton>
+              <TabButton
+                active={activeTab === 'stats'}
+                onClick={() => setActiveTab('stats')}
+              >
+                Statistics
+              </TabButton>
             </div>
 
             {/* Tab Content */}
@@ -96,15 +115,69 @@ export function AdminDashboard() {
               transition={{ duration: 0.3 }}
             >
               {activeTab === 'products' && <ProductsTab accessToken={accessToken!} />}
-              {activeTab === 'offers' && <OffersTab accessToken={accessToken!} />}
+              {activeTab === 'offers' && <OffersTab accessToken={accessToken!} onOpenNotificationModal={() => setShowNotificationModal(true)} onShowEvents={() => setShowEventsModal(true)} onLoadEvents={async () => {
+                try {
+                  const { events } = await api.getNotificationEvents(accessToken!);
+                  setNotificationEvents(events || []);
+                } catch (e) {
+                  console.error('Failed to load notification events', e);
+                }
+              }} />}
               {activeTab === 'coupons' && <CouponsTab accessToken={accessToken!} />}
               {activeTab === 'orders' && <OrdersTab accessToken={accessToken!} />}
+              {activeTab === 'users' && <UsersTab accessToken={accessToken!} />}
+              {activeTab === 'stats' && <StatsTab accessToken={accessToken!} />}
             </motion.div>
           </div>
         </div>
       </main>
+      <NotificationModal
+        isOpen={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+        accessToken={accessToken!}
+        onSuccess={() => {
+          // Optionally refresh events
+        }}
+      />
+
+      {showEventsModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-24">
+          <div className="bg-black/50 absolute inset-0" onClick={() => setShowEventsModal(false)} />
+          <div className="bg-card border border-border rounded-lg p-6 z-10 w-[90%] max-w-3xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-medium">Notification Events</h2>
+              <div className="flex gap-2">
+                <Button variant="neutral" onClick={() => setShowEventsModal(false)}>Close</Button>
+              </div>
+            </div>
+            <div className="space-y-3 max-h-96 overflow-auto">
+              {notificationEvents.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No events recorded yet.</div>
+              ) : (
+                notificationEvents.map((e: any, idx: number) => (
+                  <div key={idx} className="p-3 border rounded-md">
+                    <div className="text-sm font-medium">{e.type.toUpperCase()} — {e.title}</div>
+                    <div className="text-xs text-muted-foreground">User: {e.userId || 'unknown'} • {new Date(e.receivedAt || e.receivedAt).toLocaleString()}</div>
+                    <div className="text-sm mt-2">{e.body}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+// Helper to list users (admin) - small internal helper
+async function apiCallForUsers(token: string) {
+  // This function hits the /profile endpoint for all users by reading KV via a temporary admin endpoint
+  // For simplicity, reuse getOffers (not ideal). In production add a proper endpoint to list users.
+  const resp = await fetch('/make-server-549f93eb/users', { headers: { Authorization: `Bearer ${token}` } });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error || 'Failed to get users');
+  return data.users || [];
 }
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -458,7 +531,7 @@ function ProductsTab({ accessToken }: { accessToken: string }) {
   );
 }
 
-function OffersTab({ accessToken }: { accessToken: string }) {
+function OffersTab({ accessToken, onOpenNotificationModal, onShowEvents, onLoadEvents }: { accessToken: string; onOpenNotificationModal: () => void; onShowEvents: () => void; onLoadEvents: () => Promise<void> }) {
   const [offers, setOffers] = useState<any[]>([
     {
       id: '1',
@@ -510,13 +583,68 @@ function OffersTab({ accessToken }: { accessToken: string }) {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <Button
-          variant="primary"
-          iconStart={<Edit size={16} />}
-          onClick={() => setIsEditModalOpen(true)}
-        >
-          Edit Offers
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="primary"
+            iconStart={<Edit size={16} />}
+            onClick={() => setIsEditModalOpen(true)}
+          >
+            Edit Offers
+          </Button>
+          <Button
+            variant="secondary"
+            iconStart={<Mail size={16} />}
+            onClick={onOpenNotificationModal}
+          >
+            Send Notification
+          </Button>
+          <Button
+            variant="outline"
+            iconStart={<Edit size={16} />}
+            onClick={async () => {
+              const userId = prompt('Enter user id to preview (or leave blank to find by email)');
+              if (!userId) {
+                const email = prompt('Enter user email to preview for');
+                if (!email) return;
+                try {
+                  const users = await apiCallForUsers(accessToken);
+                  const found = users.find((u: any) => u.email === email);
+                  if (!found) return alert('User not found');
+                  const preview = await api.previewPersonalizedPush(accessToken, found.id);
+                  alert(`Preview:\nTitle: ${preview.title}\nBody: ${preview.body}`);
+                } catch (e) {
+                  console.error(e);
+                  toast.error('Failed to preview for email');
+                }
+                return;
+              }
+              try {
+                const preview = await api.previewPersonalizedPush(accessToken, userId);
+                alert(`Preview:\nTitle: ${preview.title}\nBody: ${preview.body}`);
+              } catch (e) {
+                console.error(e);
+                toast.error('Failed to preview for user');
+              }
+            }}
+          >
+            Preview For User
+          </Button>
+          <Button
+            variant="ghost"
+            iconStart={<Mail size={16} />}
+            onClick={async () => {
+              try {
+                await onLoadEvents();
+                onShowEvents();
+              } catch (e) {
+                console.error('Failed to load notification events', e);
+                toast.error('Failed to load notification events');
+              }
+            }}
+          >
+            View Notification Events
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -733,9 +861,35 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [editPaymentType, setEditPaymentType] = useState<'full' | 'partial'>('full');
+  const [editPaymentStatus, setEditPaymentStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [editPartialAmount, setEditPartialAmount] = useState<string>('0');
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+
   useEffect(() => {
     loadOrders();
   }, []);
+
+  const handleSavePayment = async (order: any) => {
+    setIsSavingPayment(true);
+    try {
+      const pAmt = editPaymentType === 'partial' ? Number(editPartialAmount) : 0;
+      await api.updateOrder(accessToken, order.id, {
+        paymentType: editPaymentType,
+        paymentStatus: editPaymentStatus,
+        partialAmount: pAmt
+      });
+      toast.success('Payment details updated successfully!');
+      setEditingPaymentId(null);
+      loadOrders();
+    } catch (error) {
+      console.error('Error updating payment:', error);
+      toast.error('Failed to update payment details');
+    } finally {
+      setIsSavingPayment(false);
+    }
+  };
 
   const loadOrders = async () => {
     try {
@@ -855,8 +1009,110 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
                 <div className="text-lg font-medium text-foreground mt-2 pt-4 border-t border-border">
                   Total: ${order.discountedTotal.toFixed(2)}
                 </div>
+
+                <div className="mt-4 pt-4 border-t border-border flex flex-col gap-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Payment Type:</span>
+                    <span className="font-medium text-foreground uppercase">{order.paymentType || 'full'}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Payment Status:</span>
+                    <Badge
+                      label={(order.paymentStatus || 'pending').toUpperCase()}
+                      variant={
+                        order.paymentStatus === 'approved' ? 'success' :
+                        order.paymentStatus === 'rejected' ? 'danger' : 'warning' as any
+                      }
+                    />
+                  </div>
+                  {order.paymentType === 'partial' ? (
+                    <>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Paid Amount:</span>
+                        <span className="font-semibold text-emerald-500">${(order.partialAmount || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Pending Balance:</span>
+                        <span className="font-semibold text-amber-500">${(order.remainingAmount || 0).toFixed(2)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Amount Paid:</span>
+                      <span className="font-semibold text-foreground">
+                        {order.paymentStatus === 'approved' ? `$${order.discountedTotal.toFixed(2)}` : '$0.00'}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+
+            {editingPaymentId === order.id && (
+              <div className="mt-2 p-4 border rounded-lg flex flex-col gap-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-muted)' }}>
+                <h4 className="text-sm font-semibold text-foreground">Edit Payment Details</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Payment Type</label>
+                    <select
+                      value={editPaymentType}
+                      onChange={(e) => setEditPaymentType(e.target.value as any)}
+                      className="p-2 border rounded bg-background text-foreground text-sm outline-none"
+                    >
+                      <option value="full">Full Payment</option>
+                      <option value="partial">Partial Payment</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Payment Status</label>
+                    <select
+                      value={editPaymentStatus}
+                      onChange={(e) => setEditPaymentStatus(e.target.value as any)}
+                      className="p-2 border rounded bg-background text-foreground text-sm outline-none"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+
+                  {editPaymentType === 'partial' && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">Paid Amount ($)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max={order.discountedTotal}
+                        value={editPartialAmount}
+                        onChange={(e) => setEditPartialAmount(e.target.value)}
+                        className="p-2 border rounded bg-background text-foreground text-sm outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2 justify-end mt-2">
+                  <Button
+                    variant="neutral"
+                    size="small"
+                    onClick={() => setEditingPaymentId(null)}
+                    disabled={isSavingPayment}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="small"
+                    onClick={() => handleSavePayment(order)}
+                    disabled={isSavingPayment}
+                  >
+                    {isSavingPayment ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3 pt-4 border-t border-border items-center flex-wrap">
               <select
@@ -880,6 +1136,18 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
                 <option value="delivered" style={{ backgroundColor: 'var(--color-card)', color: 'var(--color-card-foreground)' }}>Delivered</option>
                 <option value="cancelled" style={{ backgroundColor: 'var(--color-card)', color: 'var(--color-card-foreground)' }}>Cancelled</option>
               </select>
+              <Button
+                variant="neutral"
+                size="small"
+                onClick={() => {
+                  setEditingPaymentId(order.id);
+                  setEditPaymentType(order.paymentType || 'full');
+                  setEditPaymentStatus(order.paymentStatus || 'pending');
+                  setEditPartialAmount(String(order.partialAmount || 0));
+                }}
+              >
+                Update Payment
+              </Button>
               <Button
                 variant="neutral"
                 size="small"

@@ -14,7 +14,7 @@ interface AuthContextType {
   user: User | null;
   accessToken: string | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<User>;
   signUp: (email: string, password: string, fullName: string, username: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -43,6 +43,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Get user profile from backend
       const profile = await api.getProfile(session.access_token);
       setUser(profile.user);
+
+      // Handle FCM push initialization
+      const provider = import.meta.env.VITE_PUSH_PROVIDER || 'webpush';
+      if (provider === 'fcm') {
+        try {
+          const { initFirebaseFCM } = await import('../../utils/firebase');
+          await initFirebaseFCM();
+        } catch (e) {
+          console.error('[FCM] Init failed:', e);
+        }
+      }
     } catch (error) {
       console.error('Error refreshing user:', error);
       setUser(null);
@@ -88,6 +99,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setAccessToken(data.session.access_token);
     await refreshUser();
+
+    // Fetch the latest profile and return it so callers can role-route
+    const profile = await api.getProfile(data.session.access_token);
+    return profile.user as User;
   };
 
   const signUp = async (email: string, password: string, fullName: string, username: string) => {
@@ -105,6 +120,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
+
+    // Clean up FCM on sign-out (FCM tokens remain valid; just clear local state)
+    console.log('[FCM] User signed out – FCM token will be refreshed on next login');
+
     setUser(null);
     setAccessToken(null);
   };

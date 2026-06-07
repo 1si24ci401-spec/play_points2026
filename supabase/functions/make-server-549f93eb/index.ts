@@ -10,15 +10,22 @@ const app = new Hono();
 // Enable logger
 app.use('*', logger(console.log));
 
-// Enable CORS for all routes and methods
+// Enable CORS — restrict to known origins only, not wildcard
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:4173',
+  'https://pdgcxaalgtlvtkgykywp.supabase.co',
+];
+
 app.use(
   "/*",
   cors({
-    origin: "*",
+    origin: (origin) => ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     exposeHeaders: ["Content-Length"],
     maxAge: 600,
+    credentials: false,
   }),
 );
 
@@ -466,6 +473,168 @@ app.post('/make-server-549f93eb/subscriptions', async (c) => {
   }
 });
 
+// Store FCM registration token for authenticated user
+app.post('/make-server-549f93eb/fcm-token', async (c) => {
+  const user = await getAuthenticatedUser(c.req.header('Authorization'));
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+  try {
+    const { token } = await c.req.json();
+    if (!token) return c.json({ error: 'FCM token required' }, 400);
+
+    await kv.set(`fcm_token:${user.id}`, { token, createdAt: new Date().toISOString() });
+    console.log(`[FCM] Token saved for user ${user.id}`);
+    return c.json({ success: true });
+  } catch (error) {
+    console.log('FCM token store error:', error);
+    return c.json({ error: 'Failed to store FCM token' }, 500);
+  }
+});
+
+// ─── FCM Helpers ─────────────────────────────────────────────────────────────
+
+async function getGoogleAccessToken(clientEmail: string, privateKeyRaw: string): Promise<string> {
+  const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const claim = {
+    iss: clientEmail, sub: clientEmail,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now, exp: now + 3600,
+  };
+  const enc = (obj: object) =>
+    btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const signingInput = `${enc(header)}.${enc(claim)}`;
+  const keyBody = privateKey
+    .replace(/-----BEGIN RSA PRIVATE KEY-----|-----END RSA PRIVATE KEY-----|-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, '')
+    .replace(/\s/g, '');
+  const binaryKey = Uint8Array.from(atob(keyBody), (c) => c.charCodeAt(0));
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8', binaryKey, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']
+  );
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(signingInput));
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const jwt = `${signingInput}.${sigB64}`;
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
+  });
+  const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) throw new Error(`Google OAuth failed: ${JSON.stringify(tokenData)}`);
+  return tokenData.access_token;
+}
+
+async function sendFCMToToken(
+  fcmToken: string,
+  payload: { title: string; body: string; url?: string; userId?: string | null },
+  projectId: string,
+  accessToken: string
+): Promise<void> {
+  const res = await fetch(
+    `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+    {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: {
+          token: fcmToken,
+          notification: { title: payload.title, body: payload.body },
+          webpush: {
+            fcm_options: { link: payload.url || '/' },
+            data: { url: payload.url || '/', userId: payload.userId || '' },
+          },
+        },
+      }),
+    }
+  );
+  if (!res.ok) {
+    const errText = await res.text();
+    console.log(`[FCM] Send failed for token (${fcmToken.slice(0, 20)}...): ${errText}`);
+  }
+}
+
+// ─── Unified push dispatcher ──────────────────────────────────────────────────
+
+async function sendPushNotification(payload: {
+  title: string; body: string; url: string; userId?: string | null; broadcast?: boolean;
+}) {
+  const PUSH_PROVIDER = Deno.env.get('PUSH_PROVIDER') || 'webpush';
+
+  if (PUSH_PROVIDER === 'fcm') {
+    const FCM_PROJECT_ID   = Deno.env.get('FCM_PROJECT_ID');
+    const FCM_CLIENT_EMAIL = Deno.env.get('FCM_CLIENT_EMAIL');
+    const FCM_PRIVATE_KEY  = Deno.env.get('FCM_PRIVATE_KEY');
+    const isMock = !FCM_PROJECT_ID || !FCM_CLIENT_EMAIL || !FCM_PRIVATE_KEY || FCM_PROJECT_ID === 'mock-firebase-project';
+
+    if (isMock) {
+      console.log('[Mock FCM] Push triggered:', payload);
+      const key = `notification_event:${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
+      await kv.set(key, {
+        type: 'delivered', userId: payload.userId || 'all-users',
+        title: payload.title, body: payload.body, url: payload.url,
+        provider: 'fcm_mock', receivedAt: new Date().toISOString(),
+      });
+      return { success: true, simulated: true };
+    }
+
+    const accessToken = await getGoogleAccessToken(FCM_CLIENT_EMAIL!, FCM_PRIVATE_KEY!);
+
+    if (payload.broadcast) {
+      const allTokens = await kv.getByPrefix('fcm_token:');
+      let sent = 0;
+      for (const item of allTokens || []) {
+        try {
+          const uid = item.key?.split(':')[1] || null;
+          const token = item.token || item.value?.token;
+          if (!token) continue;
+          await sendFCMToToken(token, { ...payload, userId: uid }, FCM_PROJECT_ID!, accessToken);
+          sent++;
+        } catch (e) { console.log('[FCM] Failed to send to one token', e); }
+      }
+      return { success: true, sent };
+    } else if (payload.userId) {
+      const entry = await kv.get(`fcm_token:${payload.userId}`);
+      const token = entry?.token || entry?.value?.token;
+      if (!token) return { success: false, error: 'No FCM token registered for this user' };
+      await sendFCMToToken(token, payload, FCM_PROJECT_ID!, accessToken);
+      return { success: true, sent: 1 };
+    }
+    return { success: false, error: 'No target specified for FCM notification' };
+  }
+
+  // WebPush fallback
+  const VAPID_SUBJECT     = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@example.com';
+  const VAPID_PUBLIC_KEY  = Deno.env.get('VAPID_PUBLIC_KEY');
+  const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) throw new Error('VAPID keys not configured');
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+
+  if (payload.broadcast) {
+    const subscriptions = await kv.getByPrefix('push_subscription:');
+    let sent = 0;
+    for (const item of subscriptions || []) {
+      try {
+        const uid = item.key?.split(':')[1] || null;
+        const sub = item.value?.subscription || item.subscription;
+        if (!sub) continue;
+        await webpush.sendNotification(sub, JSON.stringify({ ...payload, userId: uid }));
+        sent++;
+      } catch (e) { console.log('[WebPush] Failed to send to one subscription', e); }
+    }
+    return { success: true, sent };
+  } else if (payload.userId) {
+    const subEntry = await kv.get(`push_subscription:${payload.userId}`);
+    const subscription = subEntry?.subscription || subEntry?.value?.subscription;
+    if (!subscription) return { success: false, error: 'No web-push subscription for user' };
+    await webpush.sendNotification(subscription, JSON.stringify(payload));
+    return { success: true, sent: 1 };
+  }
+  return { success: false, error: 'Invalid payload type' };
+}
+
 // Send push to all saved subscriptions (admin only) - can be called by a scheduler
 app.post('/make-server-549f93eb/send-push', async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
@@ -475,44 +644,32 @@ app.post('/make-server-549f93eb/send-push', async (c) => {
   if (userProfile?.role !== 'admin') return c.json({ error: 'Admin access required' }, 403);
 
   try {
-    const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@example.com';
-    const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY');
-    const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
-
-    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
-      return c.json({ error: 'VAPID keys not configured' }, 500);
-    }
-
-    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-
     const payloadInput = await c.req.json().catch(() => ({ title: 'Daily Offers', body: 'Check today\'s offers on PlayPoints!', url: '/offers' }));
-
-    const subscriptions = await kv.getByPrefix('push_subscription:');
-
-    if (!subscriptions || subscriptions.length === 0) {
-      return c.json({ success: true, sent: 0 });
-    }
-
-    let sent = 0;
-    for (const item of subscriptions) {
-      try {
-        const userId = item.key?.split(':')[1] || null;
-        const sub = item.value?.subscription || item.subscription;
-        if (!sub) continue;
-
-        // Include userId in payload for event tracking
-        const payload = { ...payloadInput, userId };
-        await webpush.sendNotification(sub, JSON.stringify(payload));
-        sent++;
-      } catch (e) {
-        console.log('Failed to send push to one subscription', e);
+    
+    let targetUserId = payloadInput.userId;
+    if (payloadInput.email) {
+      const users = await kv.getByPrefix('user:');
+      const targetUser = (users || []).find((u: any) => 
+        (u.email?.toLowerCase() === payloadInput.email.toLowerCase()) || 
+        (u.value?.email?.toLowerCase() === payloadInput.email.toLowerCase())
+      );
+      if (targetUser) {
+        targetUserId = targetUser.id || targetUser.value?.id || targetUser.key?.split(':')[1];
+      } else {
+        return c.json({ error: 'User with specified email not found' }, 404);
       }
     }
 
-    return c.json({ success: true, sent });
-  } catch (error) {
+    if (targetUserId) {
+      const result = await sendPushNotification({ ...payloadInput, userId: targetUserId, broadcast: false });
+      return c.json({ success: true, ...result });
+    } else {
+      const result = await sendPushNotification({ ...payloadInput, broadcast: true });
+      return c.json({ success: true, ...result });
+    }
+  } catch (error: any) {
     console.log('Send push error:', error);
-    return c.json({ error: 'Failed to send pushes' }, 500);
+    return c.json({ error: error.message || 'Failed to send pushes' }, 500);
   }
 });
 
@@ -525,20 +682,7 @@ app.post('/make-server-549f93eb/send-push-personalized', async (c) => {
   if (userProfile?.role !== 'admin') return c.json({ error: 'Admin access required' }, 403);
 
   try {
-    const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@example.com';
-    const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY');
-    const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
-
-    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
-      return c.json({ error: 'VAPID keys not configured' }, 500);
-    }
-
-    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-
-    // Optional payload overrides from admin
     const payloadOverrides = await c.req.json().catch(() => ({}));
-
-    // Fetch all users
     const users = await kv.getByPrefix('user:');
     let sent = 0;
 
@@ -547,12 +691,6 @@ app.post('/make-server-549f93eb/send-push-personalized', async (c) => {
         const uid = u.id || u.value?.id || u.key?.split(':')[1];
         if (!uid) continue;
 
-        // Get subscription for this user
-        const subEntry = await kv.get(`push_subscription:${uid}`);
-        const subscription = subEntry?.subscription || subEntry?.value?.subscription;
-        if (!subscription) continue;
-
-        // Build personalization from user's order history
         const allOrders = await kv.getByPrefix('order:');
         const userOrders = (allOrders || []).filter((o: any) => o.userId === uid);
 
@@ -561,7 +699,6 @@ app.post('/make-server-549f93eb/send-push-personalized', async (c) => {
         let url = payloadOverrides.url || '/offers';
 
         if (userOrders && userOrders.length > 0) {
-          // Sort by createdAt desc
           userOrders.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           const last = userOrders[0];
           const topItem = last.items && last.items.length ? (last.items[0].name || last.items[0].title || JSON.stringify(last.items[0])) : null;
@@ -572,19 +709,19 @@ app.post('/make-server-549f93eb/send-push-personalized', async (c) => {
           }
         }
 
-        const payload = { title, body, url, userId: uid };
-
-        await webpush.sendNotification(subscription, JSON.stringify(payload));
-        sent++;
+        const res = await sendPushNotification({ title, body, url, userId: uid });
+        if (res.success) {
+          sent++;
+        }
       } catch (e) {
         console.log('Failed to send personalized push to user', e);
       }
     }
 
     return c.json({ success: true, sent });
-  } catch (error) {
+  } catch (error: any) {
     console.log('Personalized send push error:', error);
-    return c.json({ error: 'Failed to send personalized pushes' }, 500);
+    return c.json({ error: error.message || 'Failed to send personalized pushes' }, 500);
   }
 });
 

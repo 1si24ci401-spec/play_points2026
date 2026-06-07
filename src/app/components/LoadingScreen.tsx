@@ -5,7 +5,7 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const duration = 2500;
+    const duration = 4500;
     const steps = 60;
     const interval = duration / steps;
 

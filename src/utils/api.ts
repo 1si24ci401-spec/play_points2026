@@ -1,5 +1,6 @@
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
+// Use Supabase cloud functions (they should be deployed)
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-549f93eb`;
 
 interface ApiOptions {
@@ -42,6 +43,9 @@ export const api = {
 
   getProfile: (token: string) =>
     apiCall('/profile', { token }),
+
+  getUsers: (token: string) =>
+    apiCall('/users', { token }),
 
   // Products
   getProducts: () =>
@@ -101,4 +105,22 @@ export const api = {
 
   updateOffers: (token: string, offers: any[]) =>
     apiCall('/offers', { method: 'POST', body: { offers }, token }),
+  sendPush: (token: string, payload: any) =>
+    apiCall('/send-push', { method: 'POST', body: payload, token }),
+  sendPersonalizedPush: (token: string, payload: any) =>
+    apiCall('/send-push-personalized', { method: 'POST', body: payload, token }),
+  previewPersonalizedPush: (token: string, userId: string) =>
+    apiCall(`/preview-personalized?userId=${encodeURIComponent(userId)}`, { token }),
+  getNotificationEvents: (token: string) =>
+    apiCall('/notification-events', { token }),
+
+  // User In-App Notifications
+  sendUserNotification: (token: string, userId: string, message: string) =>
+    apiCall(`/users/${userId}/notify`, { method: 'POST', body: { message }, token }),
+
+  getUserNotifications: (token: string) =>
+    apiCall('/notifications', { token }),
+
+  markNotificationRead: (token: string, notificationId: string) =>
+    apiCall(`/notifications/${notificationId}/read`, { method: 'POST', token }),
 };

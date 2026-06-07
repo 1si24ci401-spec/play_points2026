@@ -4,6 +4,7 @@ import { Button, InputField } from '@figma/astraui';
 import { toast } from 'sonner';
 import { LoginSuccessAnimation } from '../components/LoginSuccessAnimation';
 import { PlayPointsMatrixRain } from '../components/PlayPointsMatrixRain';
+import { MinionRobot } from '../components/MinionRobot';
 import { useAuth } from '../context/AuthContext';
 
 export function LoginPage() {
@@ -19,14 +20,14 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      const profile = await signIn(email, password);
 
-      // Show success animation
+      // Show success animation then redirect based on server-assigned role
       setShowSuccess(true);
 
-      // Redirect after animation
       setTimeout(() => {
-        if (email === 'hydrabus45@gmail.com') {
+        // Redirect based on the role assigned by the server — no email checks here
+        if (profile?.role === 'admin') {
           navigate('/admin', { replace: true });
           toast('Welcome back, Admin!');
         } else {
@@ -51,11 +52,16 @@ export function LoginPage() {
     <div className="size-full flex items-center justify-center p-6 relative overflow-hidden" style={{ backgroundColor: 'var(--color-background)' }}>
       <PlayPointsMatrixRain />
       <LoginSuccessAnimation show={showSuccess} />
-      <div className="w-full max-w-md rounded-[var(--radius-lg)] border p-8 flex flex-col gap-6 z-10" style={{
+      <div className="w-full max-w-md rounded-[var(--radius-lg)] border p-8 flex flex-col gap-6 z-10 relative mt-20" style={{
         backgroundColor: 'var(--color-card)',
         borderColor: 'var(--color-border)'
       }}>
-        <div className="flex flex-col gap-2 text-center">
+        {/* Minion Robot peeking from top edge of card */}
+        <div className="absolute -top-[125px] left-1/2 -translate-x-1/2">
+          <MinionRobot />
+        </div>
+
+        <div className="flex flex-col gap-2 text-center pt-2">
           <h1 className="text-3xl font-medium" style={{ color: 'var(--color-foreground)' }}>Welcome Back</h1>
           <p style={{ color: 'var(--color-muted-foreground)' }}>Sign in to your account</p>
         </div>

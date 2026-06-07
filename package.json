@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "generate:vapid": "node scripts/generate-vapid.js",
+    "send-push-local": "node scripts/send-push-local.js"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -19,6 +21,7 @@
     "cmdk": "1.1.1",
     "date-fns": "3.6.0",
     "embla-carousel-react": "8.6.0",
+    "firebase": "^12.14.0",
     "input-otp": "1.4.2",
     "lucide-react": "0.487.0",
     "motion": "12.23.24",
@@ -43,7 +46,8 @@
     "@tailwindcss/vite": "4.1.12",
     "@vitejs/plugin-react": "4.7.0",
     "tailwindcss": "4.1.12",
-    "vite": "6.3.5"
+    "vite": "6.3.5",
+    "web-push": "^3.6.7"
   },
   "peerDependencies": {
     "react": "18.3.1",

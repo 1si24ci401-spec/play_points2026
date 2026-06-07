@@ -47,9 +47,11 @@ export function ProductsPage() {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
-    loadProducts();
-    loadOffers();
-  }, []);
+    if (user) {
+      loadProducts();
+      loadOffers();
+    }
+  }, [user]);
 
   const loadProducts = async () => {
     try {

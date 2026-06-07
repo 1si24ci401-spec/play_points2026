@@ -16,7 +16,7 @@ function figmaAssetResolver() {
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     figmaAssetResolver(),
     // The React and Tailwind plugins are both required for Make, even if
@@ -33,4 +33,27 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
-})
+
+  // Strip console.log/error/warn and debugger statements from the production
+  // bundle only. They remain available during `npm run dev`.
+  esbuild: mode === 'production'
+    ? { drop: ['console', 'debugger'] }
+    : {},
+
+  build: {
+    // Never ship readable source maps to the browser in production.
+    // Attackers cannot reverse-engineer TypeScript source from the minified bundle.
+    sourcemap: false,
+  },
+
+  server: {
+    proxy: {
+      '/make-server-549f93eb': {
+        target: 'http://localhost:54321/functions/v1/make-server-549f93eb',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/make-server-549f93eb/, ''),
+      },
+    },
+  },
+}))
+

@@ -3,11 +3,12 @@ import { useNavigate, Link } from 'react-router';
 import { Button, InputField } from '@figma/astraui';
 import { toast } from 'sonner';
 import { PlayPointsMatrixRain } from '../components/PlayPointsMatrixRain';
+import { MinionRobot } from '../components/MinionRobot';
 import { useAuth } from '../context/AuthContext';
 
 export function SignupPage() {
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -21,8 +22,9 @@ export function SignupPage() {
     try {
       await signUp(email, password, fullName, username);
 
-      // Immediately redirect for better perceived performance
-      if (email === 'hydrabus45@gmail.com') {
+      // signUp calls signIn internally; fetch the profile role for redirect
+      const profile = await signIn(email, password);
+      if (profile?.role === 'admin') {
         navigate('/admin', { replace: true });
         toast('Admin account created successfully!');
       } else {
@@ -39,8 +41,13 @@ export function SignupPage() {
   return (
     <div className="size-full bg-brand-tertiary flex items-center justify-center p-2xl overflow-auto relative">
       <PlayPointsMatrixRain />
-      <div className="w-full max-w-md bg-surface-bg rounded-corner-lg p-xl flex flex-col gap-xl my-2xl z-10">
-        <div className="flex flex-col gap-xs text-center">
+      <div className="relative mt-24 w-full max-w-md bg-surface-bg rounded-corner-lg p-xl flex flex-col gap-xl my-2xl z-10">
+        {/* Minion Robot peeking from top edge of card */}
+        <div className="absolute -top-[125px] left-1/2 -translate-x-1/2">
+          <MinionRobot />
+        </div>
+
+        <div className="flex flex-col gap-xs text-center pt-2">
           <h1 className="text-text-primary">Create Account</h1>
           <p className="text-text-secondary">Join us to start shopping</p>
         </div>

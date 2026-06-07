@@ -51,14 +51,13 @@ export function AuthCallbackPage() {
         try {
           profile = await api.getProfile(session.access_token);
         } catch {
-          // Profile doesn't exist — create it (first-time OAuth user)
-          const isAdmin = session.user.email === 'hydrabus45@gmail.com';
+          // Profile doesn't exist — create it (first-time OAuth user).
+          // Role is assigned server-side in /signup; no client-side email check.
           await api.signup(
             session.user.email!,
             '', // OAuth users have no password
             session.user.user_metadata?.full_name || session.user.email!.split('@')[0],
-            session.user.email!.split('@')[0],
-            isAdmin ? 'admin' : 'user'
+            session.user.email!.split('@')[0]
           );
           profile = await api.getProfile(session.access_token);
         }

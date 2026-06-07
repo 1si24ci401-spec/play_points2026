@@ -1,0 +1,26 @@
+name: Daily Send Push
+
+on:
+  schedule:
+    # Runs every day at 09:00 UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  send-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send daily push
+        env:
+          ENDPOINT: ${{ secrets.SCHEDULER_ENDPOINT }}
+          ADMIN_TOKEN: ${{ secrets.SCHEDULER_ADMIN_TOKEN }}
+        run: |
+          if [ -z "$ENDPOINT" ] || [ -z "$ADMIN_TOKEN" ]; then
+            echo "Missing required secrets: SCHEDULER_ENDPOINT and SCHEDULER_ADMIN_TOKEN";
+            exit 1;
+          fi
+
+          curl -X POST "$ENDPOINT" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"title":"Daily Offers","body":"New offers waiting — open the app to claim!","url":"/offers"}'

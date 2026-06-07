@@ -8,7 +8,35 @@
       <title>Play Offer</title>
       <meta name="description" content="Experience a secure points system for browsing and purchasing digital products with user-friendly authentication, shopping cart management, and discount features." />
       <meta name="robots" content="noindex, nofollow" />
+
+      <!-- Security Headers -->
+      <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+      <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+      <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=()" />
+      <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://www.gstatic.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com;
+        img-src 'self' data: blob: https:;
+        connect-src 'self'
+          https://*.supabase.co wss://*.supabase.co
+          https://vercel.live
+          https://firebaseinstallations.googleapis.com
+          https://fcm.googleapis.com
+          https://fcmregistrations.googleapis.com
+          https://*.googleapis.com
+          https://*.firebase.io
+          https://*.firebaseio.com
+          wss://*.firebaseio.com
+          https://*.firebaseapp.com;
+        worker-src 'self' blob:;
+        frame-ancestors 'none';
+      " />
+
+
       <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+
       
     </head>
 

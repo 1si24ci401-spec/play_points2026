@@ -37,6 +37,14 @@ export function OrdersPage() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [editedItems, setEditedItems] = useState<any[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -130,16 +138,16 @@ export function OrdersPage() {
     if (user?.role === 'admin') {
       return order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'delivered';
     }
-    // Users can only cancel orders that are still pending
-    // Once admin starts processing, they cannot cancel
-    return order.status === 'pending';
+    const withinOneMin = (now - new Date(order.createdAt).getTime()) <= (1 * 60 * 1000);
+    return order.status === 'pending' && withinOneMin;
   };
 
   const canEditOrder = (order: Order) => {
     if (user?.role === 'admin') {
       return order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'delivered';
     }
-    return order.status === 'pending' && order.paymentStatus === 'pending';
+    const withinOneMin = (now - new Date(order.createdAt).getTime()) <= (1 * 60 * 1000);
+    return order.status === 'pending' && order.paymentStatus === 'pending' && withinOneMin;
   };
 
   const getStatusBadgeVariant = (status: string) => {
@@ -351,10 +359,43 @@ export function OrdersPage() {
                           {formatCurrency(order.discountedTotal)}
                         </span>
                       </div>
+
+                      {/* Detailed Paid and Pending Details */}
+                      <div className="mt-2 pt-2 border-t border-dashed space-y-1.5" style={{ borderColor: 'var(--color-border)' }}>
+                        <div className="flex justify-between text-sm">
+                          <span style={{ color: 'var(--color-muted-foreground)' }}>Payment Type</span>
+                          <span className="font-semibold uppercase text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--color-muted)', color: 'var(--color-foreground)' }}>
+                            {order.paymentType || 'full'}
+                          </span>
+                        </div>
+                        {order.paymentType === 'partial' ? (
+                          <>
+                            <div className="flex justify-between text-sm">
+                              <span style={{ color: 'var(--color-muted-foreground)' }}>Paid Amount</span>
+                              <span className="font-semibold text-emerald-500">
+                                {formatCurrency(order.partialAmount || 0)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span style={{ color: 'var(--color-muted-foreground)' }}>Pending Amount</span>
+                              <span className="font-bold text-amber-500">
+                                {formatCurrency(order.remainingAmount || 0)}
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex justify-between text-sm">
+                            <span style={{ color: 'var(--color-muted-foreground)' }}>Paid Amount</span>
+                            <span className="font-semibold text-foreground">
+                              {order.paymentStatus === 'approved' ? formatCurrency(order.discountedTotal) : formatCurrency(0)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       {canEditOrder(order) && (
                         <Button
                           variant="neutral"
@@ -379,6 +420,12 @@ export function OrdersPage() {
                         >
                           {cancellingOrder === order.id ? 'Cancelling...' : 'Cancel Order'}
                         </Button>
+                      )}
+                      {user?.role !== 'admin' && (canEditOrder(order) || canCancelOrder(order)) && (
+                        <div className="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-[var(--radius-md)] border border-amber-500/20 bg-amber-500/10 text-amber-500 animate-pulse font-medium">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Modifications lock in {Math.max(0, Math.ceil((60000 - (now - new Date(order.createdAt).getTime())) / 1000))}s</span>
+                        </div>
                       )}
                       {order.status === 'completed' && (
                         <Button

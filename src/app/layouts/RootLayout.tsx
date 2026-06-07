@@ -5,6 +5,8 @@ import { CartProvider } from '../context/CartContext';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'motion/react';
+import { OffersNotification } from '../components/OffersNotification';
+import { UserNotificationPopup } from '../components/UserNotificationPopup';
 
 export function RootLayout() {
   const [isLoading, setIsLoading] = useState(true);
@@ -32,6 +34,8 @@ export function RootLayout() {
               ) : null}
             </AnimatePresence>
             {!isLoading && <Outlet />}
+            {!isLoading && <OffersNotification />}
+            {!isLoading && <UserNotificationPopup />}
           </div>
         </CartProvider>
       </AuthProvider>

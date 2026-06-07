@@ -7,6 +7,8 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { OffersNotification } from '../components/OffersNotification';
 import { UserNotificationPopup } from '../components/UserNotificationPopup';
+import { isSupabaseConfigured } from '../../utils/supabase/client';
+import { SetupWarningScreen } from '../components/SetupWarningScreen';
 
 export function RootLayout() {
   const [isLoading, setIsLoading] = useState(true);
@@ -22,6 +24,14 @@ export function RootLayout() {
     sessionStorage.setItem('hasSeenLoading', 'true');
     setIsLoading(false);
   };
+
+  if (!isSupabaseConfigured()) {
+    return (
+      <ThemeProvider>
+        <SetupWarningScreen />
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider>

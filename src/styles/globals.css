@@ -35,7 +35,7 @@ select {
 
   /* Automatically pad main scrollable area for mobile bottom nav bar */
   main {
-    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   /* Better spacing for mobile */
@@ -53,6 +53,13 @@ select {
   /* Better touch scrolling */
   * {
     -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Desktop spacing for top navigation bar */
+@media (min-width: 768px) {
+  main {
+    padding-top: 5rem !important;
   }
 }
 

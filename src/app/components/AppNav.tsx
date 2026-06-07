@@ -1,6 +1,5 @@
 import { useNavigate, useLocation } from 'react-router';
-import { SidebarNavigation, SidebarButton, Avatar } from '@figma/astraui';
-import { Home, ShoppingBag, ShoppingCart, Package, Settings, LogOut, User, Gift } from 'lucide-react';
+import { Home, ShoppingBag, ShoppingCart, Package, Settings, LogOut, User, Gift, ChevronDown, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { motion } from 'motion/react';
@@ -23,129 +22,149 @@ export function AppNav() {
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
     { path: '/products', label: 'Shop', icon: ShoppingBag },
-    { path: '/cart', label: 'Cart', icon: ShoppingCart, hasBadge: true },
-    { path: '/orders', label: 'Orders', icon: Package },
     { path: '/offers', label: 'Offers', icon: Gift },
+    { path: '/orders', label: 'Orders', icon: Package },
+    { path: '/cart', label: 'Cart', icon: ShoppingCart, hasBadge: true },
     { path: '/profile', label: 'Profile', icon: User },
   ];
 
   return (
     <>
-      {/* Desktop Navigation */}
-      <div className="hidden md:flex h-screen flex-shrink-0">
-        <SidebarNavigation
-          footer={
-            <>
-              <SidebarButton
-                icon={<Gift size={20} />}
-                active={location.pathname === '/offers'}
-                onClick={() => navigate('/offers')}
-              />
-              <SidebarButton
-                icon={<User size={20} />}
-                active={location.pathname === '/profile'}
-                onClick={() => navigate('/profile')}
-              />
-              {user?.role === 'admin' && (
-                <SidebarButton
-                  icon={<Settings size={20} />}
-                  active={location.pathname === '/admin'}
-                  onClick={() => navigate('/admin')}
+      {/* Desktop Swiggy-Style Top Navigation Header */}
+      <header 
+        className="hidden md:block fixed top-0 left-0 right-0 h-20 z-50 border-b transition-colors duration-200"
+        style={{
+          backgroundColor: 'var(--color-card)',
+          borderColor: 'var(--color-border)',
+          boxShadow: '0 15px 40px -20px rgba(0,0,0,0.15)'
+        }}
+      >
+        <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-6">
+          {/* Left Side: Brand Logo & Swiggy Location Selector */}
+          <div className="flex items-center">
+            <div 
+              className="flex items-center gap-3 cursor-pointer group" 
+              onClick={() => navigate('/')}
+            >
+              <motion.div 
+                whileHover={{ rotate: 180 }}
+                transition={{ duration: 0.4 }}
+                className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-indigo-500 to-pink-500 shadow-md"
+              >
+                <Star size={20} className="text-white fill-current" />
+              </motion.div>
+              <span className="font-bold text-lg tracking-tight text-foreground transition-colors group-hover:text-indigo-400">
+                Play Points
+              </span>
+            </div>
+
+            {/* Swiggy Address Indicator */}
+            <div className="flex items-center gap-1.5 text-[13px] border-l pl-4 ml-6 cursor-pointer hover:text-indigo-400 transition-colors"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <span className="font-bold" style={{ color: 'var(--color-foreground)' }}>Other</span>
+              <span className="truncate max-w-[200px]" style={{ color: 'var(--color-muted-foreground)' }}>
+                Discord Profile Address
+              </span>
+              <ChevronDown size={14} className="text-indigo-400" />
+            </div>
+          </div>
+
+          {/* Right Side: Swiggy Desktop Spaced Links */}
+          <nav className="flex items-center gap-10">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              const Icon = item.icon;
+
+              return (
+                <div
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className={`flex items-center gap-3 cursor-pointer py-2 font-medium text-[15px] select-none group transition-colors duration-200 ${
+                    isActive ? 'text-indigo-400' : 'text-slate-300 hover:text-indigo-400'
+                  }`}
+                  style={{ color: isActive ? 'var(--color-primary)' : '' }}
+                >
+                  <div className="relative">
+                    <Icon size={19} className="transition-transform group-hover:-translate-y-0.5 duration-200" />
+                    {item.hasBadge && itemCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-indigo-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold shadow-sm">
+                        {itemCount}
+                      </span>
+                    )}
+                  </div>
+                  <span>{item.label}</span>
+                </div>
+              );
+            })}
+
+            {/* Desktop Quick Logout */}
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-3 cursor-pointer py-2 font-medium text-[15px] select-none text-slate-300 hover:text-red-400 transition-colors duration-200 group"
+            >
+              <LogOut size={19} className="transition-transform group-hover:translate-x-0.5 duration-200" />
+              <span>Logout</span>
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      {/* Mobile Swiggy-Style Bottom Navigation Bar */}
+      <div 
+        className="md:hidden fixed bottom-0 left-0 right-0 h-16 z-50 border-t flex items-center justify-around pb-[env(safe-area-inset-bottom,0px)]"
+        style={{
+          backgroundColor: 'var(--color-card)',
+          borderColor: 'var(--color-border)',
+          boxShadow: '0 -8px 24px rgba(0,0,0,0.1)'
+        }}
+      >
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          const Icon = item.icon;
+
+          return (
+            <motion.button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              whileTap={{ scale: 0.9 }}
+              className="flex flex-col items-center justify-center flex-1 py-2 relative z-10 cursor-pointer select-none"
+            >
+              {/* Active Slide highlight */}
+              {isActive && (
+                <motion.div
+                  layoutId="active-tab-glow"
+                  className="absolute bottom-1 w-10 h-1 rounded-full bg-indigo-500"
+                  transition={{ type: "spring", stiffness: 350, damping: 25 }}
                 />
               )}
-              <SidebarButton
-                icon={<LogOut size={20} />}
-                onClick={handleSignOut}
-              />
-              <Avatar
-                size="medium"
-                name={user?.fullName || user?.email || 'User'}
-              />
-            </>
-          }
-        >
-          <SidebarButton
-            icon={<Home size={20} />}
-            active={location.pathname === '/'}
-            onClick={() => navigate('/')}
-          />
-          <SidebarButton
-            icon={<ShoppingBag size={20} />}
-            active={location.pathname === '/products'}
-            onClick={() => navigate('/products')}
-          />
-          <SidebarButton
-            icon={
-              <div className="relative">
-                <ShoppingCart size={20} />
-                {itemCount > 0 && (
-                  <div className="absolute -top-1 -right-1 bg-brand-primary text-on-brand text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium">
-                    {itemCount > 9 ? '9+' : itemCount}
-                  </div>
+
+              {/* Icon with Badge */}
+              <div className="relative flex items-center justify-center">
+                <Icon
+                  size={19}
+                  className={`transition-colors duration-200 ${
+                    isActive ? 'text-indigo-400' : 'text-slate-400'
+                  }`}
+                />
+                {item.hasBadge && itemCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-indigo-500 text-white text-[9px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
+                    {itemCount}
+                  </span>
                 )}
               </div>
-            }
-            active={location.pathname === '/cart'}
-            onClick={() => navigate('/cart')}
-          />
-          <SidebarButton
-            icon={<Package size={20} />}
-            active={location.pathname === '/orders'}
-            onClick={() => navigate('/orders')}
-          />
-        </SidebarNavigation>
-      </div>
 
-      {/* Mobile Floating Bottom Navigation */}
-      <div className="md:hidden fixed bottom-4 left-4 right-4 z-50 pb-[env(safe-area-inset-bottom,0px)]">
-        <div className="backdrop-blur-xl bg-slate-950/75 border border-slate-900 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] px-2.5 py-1.5 flex items-center justify-around relative overflow-hidden">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
-
-            return (
-              <motion.button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                whileTap={{ scale: 0.9 }}
-                className="flex flex-col items-center justify-center flex-1 py-1.5 relative z-10 cursor-pointer select-none"
+              {/* Label */}
+              <span
+                className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${
+                  isActive ? 'text-indigo-400 font-semibold' : 'text-slate-500'
+                }`}
               >
-                {/* Active Indicator Bubble */}
-                {isActive && (
-                  <motion.div
-                    layoutId="active-tab-bubble"
-                    className="absolute inset-0 bg-indigo-500/10 border border-indigo-500/20 rounded-xl"
-                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                  />
-                )}
-
-                {/* Icon with Optional Badge */}
-                <div className="relative flex items-center justify-center">
-                  <Icon
-                    size={20}
-                    className={`transition-colors duration-200 ${
-                      isActive ? 'text-indigo-400' : 'text-slate-400'
-                    }`}
-                  />
-                  {item.hasBadge && itemCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-indigo-500 text-white text-[10px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-bold">
-                      {itemCount > 9 ? '9+' : itemCount}
-                    </span>
-                  )}
-                </div>
-
-                {/* Label */}
-                <span
-                  className={`text-[10px] mt-1 font-medium tracking-wide transition-colors duration-200 ${
-                    isActive ? 'text-indigo-400 font-semibold' : 'text-slate-500'
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </motion.button>
-            );
-          })}
-        </div>
+                {item.label}
+              </span>
+            </motion.button>
+          );
+        })}
       </div>
     </>
   );

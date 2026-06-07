@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { registerServiceWorkerAndSubscribe } from '../../utils/push';
+import { X, Bell } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
 
@@ -68,23 +70,48 @@ export function OffersNotification() {
     }
   };
 
-
-  if (!visible) return null;
-
   return (
-    <div className="fixed bottom-6 right-6 z-50 max-w-xs bg-gradient-to-r from-indigo-600 to-pink-600 text-white rounded-lg shadow-lg p-4 flex gap-3 items-start">
-      <div className="flex-1">
-        <div className="font-semibold">Exclusive offers waiting</div>
-        <div className="text-sm opacity-90">Come back and check today's offers tailored for you.</div>
-        <div className="mt-2 flex gap-2">
-          <Link to="/offers" className="bg-white text-indigo-600 px-3 py-1 rounded-md text-sm font-medium">View Offers</Link>
-          {typeof Notification !== 'undefined' && Notification.permission !== 'granted' ? (
-            <button onClick={enablePush} className="bg-white text-indigo-600 px-3 py-1 rounded-md text-sm font-medium">Enable Notifications</button>
-          ) : null}
-          <button onClick={dismiss} className="bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-md text-sm">Dismiss</button>
-        </div>
-      </div>
-    </div>
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, y: -80, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -80, scale: 0.95 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+          className="fixed top-4 left-4 right-4 md:left-auto md:right-6 md:max-w-sm z-[100] bg-gradient-to-r from-indigo-600 to-pink-600 text-white rounded-xl shadow-[0_8px_32px_rgba(99,102,241,0.25)] p-4 flex gap-3 items-start border border-white/10"
+        >
+          <div className="p-2 bg-white/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+            <Bell size={18} />
+          </div>
+          
+          <div className="flex-1 pr-6">
+            <div className="font-semibold text-sm md:text-base">Exclusive offers waiting</div>
+            <div className="text-xs md:text-sm opacity-90 mt-0.5">Come back and check today's offers tailored for you.</div>
+            <div className="mt-3 flex gap-2">
+              <Link to="/offers" onClick={dismiss} className="bg-white text-indigo-600 px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold shadow-sm hover:bg-slate-50 transition-colors">
+                View Offers
+              </Link>
+              {typeof Notification !== 'undefined' && Notification.permission === 'default' && (
+                <button 
+                  onClick={enablePush} 
+                  className="bg-white/20 text-white border border-white/20 px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold hover:bg-white/30 transition-colors"
+                >
+                  Enable Notifications
+                </button>
+              )}
+            </div>
+          </div>
+
+          <button 
+            onClick={dismiss} 
+            className="absolute top-3 right-3 p-1 rounded-lg hover:bg-white/15 transition-colors text-white/80 hover:text-white cursor-pointer"
+            aria-label="Dismiss"
+          >
+            <X size={16} />
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

@@ -20,7 +20,14 @@ export async function registerServiceWorkerAndSubscribe(vapidPublicKey: string, 
   const registration = await navigator.serviceWorker.register('/sw.js');
   await navigator.serviceWorker.ready;
 
-  const permission = await Notification.requestPermission();
+  let permission: NotificationPermission;
+  try {
+    permission = await Notification.requestPermission();
+  } catch (e) {
+    permission = await new Promise<NotificationPermission>((resolve) => {
+      Notification.requestPermission(resolve);
+    });
+  }
   if (permission !== 'granted') throw new Error('Permission not granted');
 
   const existingSubscription = await registration.pushManager.getSubscription();

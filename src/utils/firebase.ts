@@ -78,7 +78,14 @@ export async function requestFCMPermission(): Promise<string | null> {
   }
 
   try {
-    const permission = await Notification.requestPermission();
+    let permission: NotificationPermission;
+    try {
+      permission = await Notification.requestPermission();
+    } catch (e) {
+      permission = await new Promise<NotificationPermission>((resolve) => {
+        Notification.requestPermission(resolve);
+      });
+    }
     if (permission !== 'granted') {
       console.warn('[FCM] Notification permission denied');
       return null;

@@ -52,6 +52,15 @@ export function ProfilePage() {
                 <span className="text-sm text-text-secondary">Account Type</span>
                 <span className="text-text-primary capitalize">{user.role || 'User'}</span>
               </div>
+
+              {user.role === 'admin' && (
+                <div className="flex flex-col gap-sm pt-4 border-t border-slate-800">
+                  <span className="text-sm text-text-secondary font-medium">Administrative Controls</span>
+                  <Button variant="primary" onClick={() => navigate('/admin')} className="w-full sm:w-auto">
+                    Go to Admin Dashboard
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>

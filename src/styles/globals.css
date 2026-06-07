@@ -33,6 +33,11 @@ select {
     min-width: 44px;
   }
 
+  /* Automatically pad main scrollable area for mobile bottom nav bar */
+  main {
+    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
   /* Better spacing for mobile */
   body {
     -webkit-font-smoothing: antialiased;

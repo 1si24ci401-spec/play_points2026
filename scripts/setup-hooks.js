@@ -15,6 +15,11 @@ const preCommitHookPath = path.join(hooksDir, 'pre-commit');
 function setup() {
   console.log('[+] Setting up Git hooks...');
 
+  if (process.env.CI || process.env.VERCEL) {
+    console.log('[+] CI/Vercel environment detected, skipping hook installation.');
+    return;
+  }
+
   if (!fs.existsSync(gitDir)) {
     console.log('[!] Not a Git repository, skipping hook installation.');
     return;

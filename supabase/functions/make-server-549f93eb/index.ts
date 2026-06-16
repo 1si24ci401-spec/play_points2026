@@ -66,12 +66,12 @@ const getAuthenticatedUser = async (authHeader: string | null) => {
 };
 
 // Health check endpoint
-app.get("/health", (c) => {
+app.get("/make-server-549f93eb/health", (c) => {
   return c.json({ status: "ok" });
 });
 
 // List users (admin only) - helper for admin UI (returns KV user entries)
-app.get('/users', async (c) => {
+app.get('/make-server-549f93eb/users', async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const userProfile = await kv.get(`user:${user.id}`);
@@ -87,7 +87,7 @@ app.get('/users', async (c) => {
 });
 
 // Store notification events
-app.post('/notification-event', async (c) => {
+app.post('/make-server-549f93eb/notification-event', async (c) => {
   try {
     const body = await c.req.json();
     const { type, userId } = body;
@@ -101,7 +101,7 @@ app.post('/notification-event', async (c) => {
 });
 
 // Get recent notification events (admin only)
-app.get('/notification-events', async (c) => {
+app.get('/make-server-549f93eb/notification-events', async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const userProfile = await kv.get(`user:${user.id}`);
@@ -121,7 +121,7 @@ app.get('/notification-events', async (c) => {
 });
 
 // Preview personalized message for a single user (admin only)
-app.get('/preview-personalized', async (c) => {
+app.get('/make-server-549f93eb/preview-personalized', async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const userProfile = await kv.get(`user:${user.id}`);
@@ -163,7 +163,7 @@ app.get('/preview-personalized', async (c) => {
 // ============ AUTH ENDPOINTS ============
 
 // Sign up endpoint
-app.post("/signup", async (c) => {
+app.post("/make-server-549f93eb/signup", async (c) => {
   try {
     const { email, password, fullName, username, role: requestedRole } = await c.req.json();
 
@@ -212,7 +212,7 @@ app.post("/signup", async (c) => {
 });
 
 // Get user profile
-app.get("/profile", async (c) => {
+app.get("/make-server-549f93eb/profile", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -266,7 +266,7 @@ app.get("/profile", async (c) => {
 });
 
 // Get points settings
-app.get('/points-settings', async (c) => {
+app.get('/make-server-549f93eb/points-settings', async (c) => {
   try {
     const settings = await kv.get('points_settings') || { pointPrice: 0.10 };
     return c.json({ settings });
@@ -277,7 +277,7 @@ app.get('/points-settings', async (c) => {
 });
 
 // Update points settings (admin only)
-app.post('/points-settings', async (c) => {
+app.post('/make-server-549f93eb/points-settings', async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const userProfile = await kv.get(`user:${user.id}`);
@@ -312,7 +312,7 @@ app.post('/points-settings', async (c) => {
 });
 
 // Update user points (admin or owner only)
-app.put('/users/:userId/points', async (c) => {
+app.put('/make-server-549f93eb/users/:userId/points', async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const targetUserId = c.req.param('userId');
@@ -367,7 +367,7 @@ app.put('/users/:userId/points', async (c) => {
 });
 
 // Update user tier (admin only)
-app.put('/users/:userId/tier', async (c) => {
+app.put('/make-server-549f93eb/users/:userId/tier', async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const userProfile = await kv.get(`user:${user.id}`);
@@ -415,7 +415,7 @@ app.put('/users/:userId/tier', async (c) => {
 // ============ PRODUCT ENDPOINTS ============
 
 // Get all products
-app.get("/products", async (c) => {
+app.get("/make-server-549f93eb/products", async (c) => {
   try {
     const products = await kv.getByPrefix('product:');
     return c.json({ products: products || [] });
@@ -426,7 +426,7 @@ app.get("/products", async (c) => {
 });
 
 // Create product (admin only)
-app.post("/products", async (c) => {
+app.post("/make-server-549f93eb/products", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -459,7 +459,7 @@ app.post("/products", async (c) => {
 });
 
 // Update product (admin only)
-app.put("/products/:productId", async (c) => {
+app.put("/make-server-549f93eb/products/:productId", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -499,7 +499,7 @@ app.put("/products/:productId", async (c) => {
 });
 
 // Delete product (admin only)
-app.delete("/products/:productId", async (c) => {
+app.delete("/make-server-549f93eb/products/:productId", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -527,7 +527,7 @@ app.delete("/products/:productId", async (c) => {
 // ============ CART ENDPOINTS ============
 
 // Get user's cart
-app.get("/cart", async (c) => {
+app.get("/make-server-549f93eb/cart", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -544,7 +544,7 @@ app.get("/cart", async (c) => {
 });
 
 // Update user's cart
-app.post("/cart", async (c) => {
+app.post("/make-server-549f93eb/cart", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -564,7 +564,7 @@ app.post("/cart", async (c) => {
 // ============ COUPON ENDPOINTS ============
 
 // Get all coupons (admin only)
-app.get("/coupons", async (c) => {
+app.get("/make-server-549f93eb/coupons", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -587,7 +587,7 @@ app.get("/coupons", async (c) => {
 });
 
 // Validate coupon code
-app.post("/coupons/validate", async (c) => {
+app.post("/make-server-549f93eb/coupons/validate", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -631,7 +631,7 @@ app.post("/coupons/validate", async (c) => {
 });
 
 // Store push subscription for authenticated user
-app.post('/subscriptions', async (c) => {
+app.post('/make-server-549f93eb/subscriptions', async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
 
@@ -650,7 +650,7 @@ app.post('/subscriptions', async (c) => {
 });
 
 // Store FCM registration token for authenticated user
-app.post('/fcm-token', async (c) => {
+app.post('/make-server-549f93eb/fcm-token', async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
 
@@ -812,7 +812,7 @@ async function sendPushNotification(payload: {
 }
 
 // Send push to all saved subscriptions (admin only) - can be called by a scheduler
-app.post('/send-push', async (c) => {
+app.post('/make-server-549f93eb/send-push', async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
 
@@ -850,7 +850,7 @@ app.post('/send-push', async (c) => {
 });
 
 // Admin-triggered personalized push to users based on past orders
-app.post('/send-push-personalized', async (c) => {
+app.post('/make-server-549f93eb/send-push-personalized', async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
   if (!user) return c.json({ error: 'Unauthorized' }, 401);
 
@@ -902,7 +902,7 @@ app.post('/send-push-personalized', async (c) => {
 });
 
 // Create coupon (admin only)
-app.post("/coupons", async (c) => {
+app.post("/make-server-549f93eb/coupons", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -938,7 +938,7 @@ app.post("/coupons", async (c) => {
 });
 
 // Update coupon (admin only)
-app.put("/coupons/:code", async (c) => {
+app.put("/make-server-549f93eb/coupons/:code", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -978,7 +978,7 @@ app.put("/coupons/:code", async (c) => {
 });
 
 // Delete coupon (admin only)
-app.delete("/coupons/:code", async (c) => {
+app.delete("/make-server-549f93eb/coupons/:code", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -1005,7 +1005,7 @@ app.delete("/coupons/:code", async (c) => {
 // ============ OFFERS ENDPOINTS ============
 
 // Get all offers (public)
-app.get("/offers", async (c) => {
+app.get("/make-server-549f93eb/offers", async (c) => {
   try {
     const offers = await kv.get('offers');
 
@@ -1043,7 +1043,7 @@ app.get("/offers", async (c) => {
 });
 
 // Update offers (admin only)
-app.post("/offers", async (c) => {
+app.post("/make-server-549f93eb/offers", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -1075,7 +1075,7 @@ app.post("/offers", async (c) => {
 // ============ ORDER ENDPOINTS ============
 
 // Create order
-app.post("/orders", async (c) => {
+app.post("/make-server-549f93eb/orders", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -1186,7 +1186,7 @@ app.post("/orders", async (c) => {
 });
 
 // Get user's orders
-app.get("/orders", async (c) => {
+app.get("/make-server-549f93eb/orders", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -1213,7 +1213,7 @@ app.get("/orders", async (c) => {
 });
 
 // Update order status (admin can update any, owner can update if pending)
-app.put("/orders/:orderId", async (c) => {
+app.put("/make-server-549f93eb/orders/:orderId", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -1277,7 +1277,7 @@ app.put("/orders/:orderId", async (c) => {
 });
 
 // Cancel order (user can cancel their own orders)
-app.post("/orders/:orderId/cancel", async (c) => {
+app.post("/make-server-549f93eb/orders/:orderId/cancel", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -1328,7 +1328,7 @@ app.post("/orders/:orderId/cancel", async (c) => {
 });
 
 // Resend order confirmation email (admin only - placeholder)
-app.post("/orders/:orderId/resend-email", async (c) => {
+app.post("/make-server-549f93eb/orders/:orderId/resend-email", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -1363,7 +1363,7 @@ app.post("/orders/:orderId/resend-email", async (c) => {
 // ============ OFFERS ENDPOINTS ============
 
 // Get all offers
-app.get("/offers", async (c) => {
+app.get("/make-server-549f93eb/offers", async (c) => {
   try {
     const offers = await kv.getByPrefix('offer:');
     return c.json({ offers: offers || [] });
@@ -1374,7 +1374,7 @@ app.get("/offers", async (c) => {
 });
 
 // Create offer (admin only)
-app.post("/offers", async (c) => {
+app.post("/make-server-549f93eb/offers", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -1407,7 +1407,7 @@ app.post("/offers", async (c) => {
 });
 
 // Update offer (admin only)
-app.put("/offers/:offerId", async (c) => {
+app.put("/make-server-549f93eb/offers/:offerId", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -1446,7 +1446,7 @@ app.put("/offers/:offerId", async (c) => {
 });
 
 // Delete offer (admin only)
-app.delete("/offers/:offerId", async (c) => {
+app.delete("/make-server-549f93eb/offers/:offerId", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {
@@ -1472,7 +1472,7 @@ app.delete("/offers/:offerId", async (c) => {
 
 // ============ CHATBOT ENDPOINT ============
 
-app.post("/chat", async (c) => {
+app.post("/make-server-549f93eb/chat", async (c) => {
   const user = await getAuthenticatedUser(c.req.header('Authorization'));
 
   if (!user) {

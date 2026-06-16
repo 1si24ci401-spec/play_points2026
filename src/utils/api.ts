@@ -27,10 +27,32 @@ async function apiCall(endpoint: string, options: ApiOptions = {}) {
   }
 
   const response = await fetch(`${API_BASE}${endpoint}`, config);
-  const data = await response.json();
+
+  // Safely parse response - handle non-JSON responses (e.g. HTML error pages)
+  let data: any;
+  const contentType = response.headers.get('content-type') || '';
+  const responseText = await response.text();
+
+  if (contentType.includes('application/json') || responseText.startsWith('{') || responseText.startsWith('[')) {
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Failed to parse API response as JSON:', responseText.substring(0, 200));
+      throw new Error(
+        response.ok
+          ? 'Server returned an invalid response. Please try again.'
+          : `Server error (${response.status}): The API returned an unexpected response. The edge function may not be deployed.`
+      );
+    }
+  } else {
+    console.error('API returned non-JSON response:', response.status, responseText.substring(0, 200));
+    throw new Error(
+      `Server error (${response.status}): The API returned an unexpected response. The edge function may not be deployed or is unreachable.`
+    );
+  }
 
   if (!response.ok) {
-    throw new Error(data.error || 'API request failed');
+    throw new Error(data.error || `API request failed (${response.status})`);
   }
 
   return data;

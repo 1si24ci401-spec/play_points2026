@@ -17,6 +17,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5175',
   'http://localhost:4173',
   'https://pdgcxaalgtlvtkgykywp.supabase.co',
+  'https://play-points2026-sdig.vercel.app',
 ];
 
 app.use(

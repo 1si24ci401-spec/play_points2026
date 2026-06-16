@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Button, InputField, SwitchField, IconButton, Badge } from '@figma/astraui';
-import { Plus, Trash2, Mail, Edit, Sparkles } from 'lucide-react';
+import { Button, InputField, SwitchField, IconButton, Badge, RadioGroup } from '@figma/astraui';
+import { Plus, Trash2, Mail, Edit, Sparkles, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { AppNav } from '../components/AppNav';
@@ -17,6 +17,7 @@ import { apiCall } from '../../utils/api';
 import { format } from 'date-fns';
 import { UsersTab } from '../components/UsersTab';
 import { StatsTab } from '../components/StatsTab';
+import { MenuPermissionsTab } from '../components/MenuPermissionsTab';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
@@ -24,7 +25,8 @@ export function AdminDashboard() {
   const [showEventsModal, setShowEventsModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [notificationEvents, setNotificationEvents] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'products' | 'coupons' | 'orders' | 'offers' | 'users' | 'stats'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'coupons' | 'orders' | 'offers' | 'users' | 'stats' | 'points' | 'permissions'>('products');
+  const [allUsers, setAllUsers] = useState<any[]>([]);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'admin')) {
@@ -32,103 +34,118 @@ export function AdminDashboard() {
     }
   }, [user, authLoading, navigate]);
 
+  // Load users for permissions tab
+  useEffect(() => {
+    if (accessToken) {
+      api.getUsers(accessToken).then((r: any) => setAllUsers(r.users || [])).catch(() => {});
+    }
+  }, [accessToken]);
+
   if (authLoading || !user || user.role !== 'admin') {
     return null;
   }
 
   return (
-    <div className="size-full flex" style={{ backgroundColor: 'var(--color-background)' }}>
+    <div className="size-full flex" style={{ backgroundColor: '#09090b', color: '#fafafa' }}>
       <ScrollProgress />
       <AppNav />
 
-      <main className="flex-1 overflow-auto">
-        {/* Header */}
-        <div className="sticky top-0 z-20 backdrop-blur-lg border-b" style={{
-          backgroundColor: 'var(--color-background)',
-          borderColor: 'var(--color-border)'
-        }}>
-          <div className="max-w-7xl mx-auto px-6 py-4">
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <div className="flex items-center gap-3 mb-1">
-                <Sparkles className="w-6 h-6" style={{ color: 'var(--color-primary)' }} />
-                <h1 className="text-2xl font-medium" style={{ color: 'var(--color-foreground)' }}>
-                  Admin Dashboard
-                </h1>
-              </div>
-              <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
-                Manage products, coupons, offers, and orders
-              </p>
-            </motion.div>
-          </div>
-        </div>
-
-        <div className="px-6 py-6">
-          <div className="max-w-7xl flex flex-col gap-6">
-            {/* Tabs */}
-            <div className="flex gap-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
-              <TabButton
-                active={activeTab === 'products'}
-                onClick={() => setActiveTab('products')}
-              >
-                Products
-              </TabButton>
-              <TabButton
-                active={activeTab === 'offers'}
-                onClick={() => setActiveTab('offers')}
-              >
-                Offers
-              </TabButton>
-              <TabButton
-                active={activeTab === 'coupons'}
-                onClick={() => setActiveTab('coupons')}
-              >
-                Coupons
-              </TabButton>
-              <TabButton
-                active={activeTab === 'orders'}
-                onClick={() => setActiveTab('orders')}
-              >
-                Orders
-              </TabButton>
-              <TabButton
-                active={activeTab === 'users'}
-                onClick={() => setActiveTab('users')}
-              >
-                Users
-              </TabButton>
-              <TabButton
-                active={activeTab === 'stats'}
-                onClick={() => setActiveTab('stats')}
-              >
-                Statistics
-              </TabButton>
+      <main className="flex-1 overflow-auto pt-8 md:pt-28 pb-16 md:pb-12 px-6">
+        <div className="max-w-7xl mx-auto flex flex-col gap-10">
+          
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-zinc-800/60 pb-6 gap-4">
+            <div className="text-left">
+              <h1 className="text-3xl font-light tracking-tight font-serif text-white">Console</h1>
+              <p className="text-xs text-zinc-400 font-mono tracking-wider mt-1 uppercase">Platform Administration Dashboard</p>
             </div>
-
-            {/* Tab Content */}
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              {activeTab === 'products' && <ProductsTab accessToken={accessToken!} />}
-              {activeTab === 'offers' && <OffersTab accessToken={accessToken!} onOpenNotificationModal={() => setShowNotificationModal(true)} onShowEvents={() => setShowEventsModal(true)} onLoadEvents={async () => {
-                try {
-                  const { events } = await api.getNotificationEvents(accessToken!);
-                  setNotificationEvents(events || []);
-                } catch (e) {
-                  console.error('Failed to load notification events', e);
-                }
-              }} />}
-              {activeTab === 'coupons' && <CouponsTab accessToken={accessToken!} />}
-              {activeTab === 'orders' && <OrdersTab accessToken={accessToken!} />}
-              {activeTab === 'users' && <UsersTab accessToken={accessToken!} />}
-              {activeTab === 'stats' && <StatsTab accessToken={accessToken!} />}
-            </motion.div>
+            <div className="flex items-center gap-2">
+              <SeedDataButton />
+            </div>
           </div>
+
+          {/* Tabs */}
+          <div className="flex gap-2 overflow-x-auto py-2 scrollbar-none -mx-6 px-6 md:mx-0 md:px-0">
+            <TabButton
+              active={activeTab === 'products'}
+              onClick={() => setActiveTab('products')}
+            >
+              Products
+            </TabButton>
+            <TabButton
+              active={activeTab === 'offers'}
+              onClick={() => setActiveTab('offers')}
+            >
+              Offers
+            </TabButton>
+            <TabButton
+              active={activeTab === 'coupons'}
+              onClick={() => setActiveTab('coupons')}
+            >
+              Coupons
+            </TabButton>
+            <TabButton
+              active={activeTab === 'orders'}
+              onClick={() => setActiveTab('orders')}
+            >
+              Orders
+            </TabButton>
+            <TabButton
+              active={activeTab === 'users'}
+              onClick={() => setActiveTab('users')}
+            >
+              Users
+            </TabButton>
+            <TabButton
+              active={activeTab === 'points'}
+              onClick={() => setActiveTab('points')}
+            >
+              Points Settings
+            </TabButton>
+            <TabButton
+              active={activeTab === 'stats'}
+              onClick={() => setActiveTab('stats')}
+            >
+              Statistics
+            </TabButton>
+            <TabButton
+              active={activeTab === 'permissions'}
+              onClick={() => setActiveTab('permissions')}
+            >
+              Menu Permissions
+            </TabButton>
+          </div>
+
+          {/* Tab Content */}
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            {activeTab === 'products' && <ProductsTab accessToken={accessToken!} />}
+            {activeTab === 'offers' && <OffersTab accessToken={accessToken!} onOpenNotificationModal={() => setShowNotificationModal(true)} onShowEvents={() => setShowEventsModal(true)} onLoadEvents={async () => {
+              try {
+                const { events } = await api.getNotificationEvents(accessToken!);
+                setNotificationEvents(events || []);
+              } catch (e) {
+                console.error('Failed to load notification events', e);
+              }
+            }} />}
+            {activeTab === 'coupons' && <CouponsTab accessToken={accessToken!} />}
+            {activeTab === 'orders' && <OrdersTab accessToken={accessToken!} />}
+            {activeTab === 'users' && <UsersTab accessToken={accessToken!} />}
+            {activeTab === 'points' && <PointsTab accessToken={accessToken!} />}
+            {activeTab === 'stats' && <StatsTab accessToken={accessToken!} />}
+            {activeTab === 'permissions' && (
+              <MenuPermissionsTab users={allUsers.map(u => ({
+                id: u.id,
+                email: u.email,
+                fullName: u.fullName || u.full_name || u.email?.split('@')[0],
+                tier: u.tier,
+              }))} />
+            )}
+          </motion.div>
         </div>
       </main>
       <NotificationModal
@@ -184,12 +201,11 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   return (
     <button
       onClick={onClick}
-      className="px-6 py-3 border-b-2 transition-all"
-      style={{
-        borderColor: active ? 'var(--color-primary)' : 'transparent',
-        color: active ? 'var(--color-primary)' : 'var(--color-muted-foreground)',
-        fontWeight: active ? 500 : 400
-      }}
+      className={`px-5 py-2 rounded-full text-xs font-mono tracking-wider uppercase transition-all duration-300 border cursor-pointer shrink-0 ${
+        active 
+          ? 'bg-white text-zinc-950 border-white shadow-[0_0_15px_rgba(255,255,255,0.1)] font-bold'
+          : 'bg-transparent text-zinc-400 border-zinc-800/80 hover:text-zinc-200 hover:border-zinc-750 font-medium'
+      }`}
     >
       {children}
     </button>
@@ -203,6 +219,7 @@ function ProductsTab({ accessToken }: { accessToken: string }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
+  const [pointsCost, setPointsCost] = useState('');
   const [category, setCategory] = useState('');
   const [image, setImage] = useState<string>('');
   const [imageError, setImageError] = useState<string>('');
@@ -252,6 +269,7 @@ function ProductsTab({ accessToken }: { accessToken: string }) {
     setName('');
     setDescription('');
     setPrice('');
+    setPointsCost('');
     setCategory('');
     setImage('');
     setImageError('');
@@ -263,6 +281,7 @@ function ProductsTab({ accessToken }: { accessToken: string }) {
     setName(product.name || '');
     setDescription(product.description || '');
     setPrice(product.price != null ? String(product.price) : '');
+    setPointsCost(product.pointsCost != null ? String(product.pointsCost) : '');
     setCategory(product.category || '');
     setImage(product.image || '');
     setImageError('');
@@ -281,6 +300,7 @@ function ProductsTab({ accessToken }: { accessToken: string }) {
         name,
         description,
         price: parseFloat(price),
+        pointsCost: pointsCost ? parseInt(pointsCost) : Math.round(parseFloat(price)),
         category,
         image: image || null,
       };
@@ -354,7 +374,7 @@ function ProductsTab({ accessToken }: { accessToken: string }) {
 
             <div className="flex gap-6">
               <InputField
-                label="Price"
+                label="Price (USD)"
                 type="number"
                 step="0.01"
                 value={price}
@@ -363,6 +383,15 @@ function ProductsTab({ accessToken }: { accessToken: string }) {
                 prefix="$"
                 className="flex-1"
                 required
+              />
+
+              <InputField
+                label="Points Cost (Blank to auto-calculate)"
+                type="number"
+                value={pointsCost}
+                onChange={setPointsCost}
+                placeholder="300"
+                className="flex-1"
               />
 
               <InputField
@@ -472,14 +501,14 @@ function ProductsTab({ accessToken }: { accessToken: string }) {
       )}
 
       {products.length === 0 ? (
-        <div className="bg-card rounded-[var(--radius-lg)] p-12 text-center text-muted-foreground">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center text-zinc-500 font-mono text-sm">
           No products yet
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product, index) => (
             <AnimatedCard key={product.id} delay={index * 0.05}>
-              <div className="bg-card border border-border rounded-[var(--radius-lg)] overflow-hidden flex flex-col gap-4">
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col gap-4 transition-all duration-300 hover:border-zinc-700 hover:shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
                 {product.image && (
                   <img
                     src={product.image}
@@ -488,39 +517,39 @@ function ProductsTab({ accessToken }: { accessToken: string }) {
                       width: '100%',
                       height: '160px',
                       objectFit: 'cover',
-                      borderBottom: '1px solid var(--color-border)',
+                      borderBottom: '1px solid #27272a',
                     }}
                   />
                 )}
                 <div className="flex flex-col gap-4 p-6 pt-0" style={product.image ? undefined : { paddingTop: '1.5rem' }}>
-                <div className="flex justify-between items-start">
-                  <div className="flex flex-col gap-2 flex-1">
-                    <h3 className="text-lg font-medium text-card-foreground">{product.name}</h3>
-                    {product.category && (
-                      <span className="text-sm text-muted-foreground px-3 py-1 bg-muted rounded-[var(--radius-md)] inline-flex w-fit">
-                        {product.category}
-                      </span>
-                    )}
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex flex-col gap-1.5 flex-1 text-left">
+                      <h3 className="text-base font-semibold text-zinc-100">{product.name}</h3>
+                      {product.category && (
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 px-2 py-0.5 bg-zinc-850 rounded border border-zinc-800 inline-flex w-fit">
+                          {product.category}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-1.5">
+                      <IconButton
+                        icon={<Edit size={14} />}
+                        variant="subtle"
+                        size="small"
+                        onClick={() => handleEdit(product)}
+                      />
+                      <IconButton
+                        icon={<Trash2 size={14} />}
+                        variant="subtle"
+                        size="small"
+                        onClick={() => handleDelete(product.id)}
+                      />
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <IconButton
-                      icon={<Edit size={16} />}
-                      variant="subtle"
-                      size="small"
-                      onClick={() => handleEdit(product)}
-                    />
-                    <IconButton
-                      icon={<Trash2 size={16} />}
-                      variant="subtle"
-                      size="small"
-                      onClick={() => handleDelete(product.id)}
-                    />
-                  </div>
-                </div>
-                <p className="text-muted-foreground flex-1">{product.description}</p>
-                <span className="text-3xl font-medium text-foreground pt-4 border-t border-border">
-                  ${product.price.toFixed(2)}
-                </span>
+                  <p className="text-xs text-zinc-400 leading-relaxed text-left flex-1">{product.description}</p>
+                  <span className="text-2xl font-serif text-white pt-4 border-t border-zinc-800 text-left">
+                    ${product.price.toFixed(2)}
+                  </span>
                 </div>
               </div>
             </AnimatedCard>
@@ -647,15 +676,15 @@ function OffersTab({ accessToken, onOpenNotificationModal, onShowEvents, onLoadE
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
         {offers.map((offer, index) => (
           <AnimatedCard key={offer.id} delay={index * 0.1}>
-            <div className="bg-card border border-border rounded-[var(--radius-lg)] p-6 h-full flex flex-col gap-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-[var(--radius-md)] bg-primary/10">
-                <span className="text-3xl font-bold text-primary">{offer.discount}</span>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 h-full flex flex-col gap-4 hover:border-zinc-700 transition-colors">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <span className="text-2xl font-bold text-amber-500 font-serif">{offer.discount}</span>
               </div>
-              <h3 className="text-xl font-medium text-card-foreground">{offer.title}</h3>
-              <p className="text-muted-foreground flex-1">{offer.description}</p>
+              <h3 className="text-lg font-semibold text-zinc-100">{offer.title}</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed flex-1">{offer.description}</p>
             </div>
           </AnimatedCard>
         ))}
@@ -675,7 +704,9 @@ function CouponsTab({ accessToken }: { accessToken: string }) {
   const [coupons, setCoupons] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [code, setCode] = useState('');
+  const [discountType, setDiscountType] = useState<'percentage' | 'point_value'>('percentage');
   const [discountPercent, setDiscountPercent] = useState('');
+  const [pointValueDiscount, setPointValueDiscount] = useState('');
   const [active, setActive] = useState(true);
   const [expiresAt, setExpiresAt] = useState('');
   const [loading, setLoading] = useState(false);
@@ -700,7 +731,9 @@ function CouponsTab({ accessToken }: { accessToken: string }) {
     try {
       await api.createCoupon(accessToken, {
         code,
-        discountPercent: parseInt(discountPercent),
+        discountType,
+        discountPercent: discountType === 'percentage' ? parseInt(discountPercent) : null,
+        pointValueDiscount: discountType === 'point_value' ? parseFloat(pointValueDiscount) : null,
         active,
         expiresAt: expiresAt || null,
       });
@@ -708,6 +741,8 @@ function CouponsTab({ accessToken }: { accessToken: string }) {
       toast('Coupon created successfully');
       setCode('');
       setDiscountPercent('');
+      setPointValueDiscount('');
+      setDiscountType('percentage');
       setActive(true);
       setExpiresAt('');
       setShowForm(false);
@@ -770,17 +805,43 @@ function CouponsTab({ accessToken }: { accessToken: string }) {
               required
             />
 
-            <InputField
-              label="Discount Percentage"
-              type="number"
-              min="1"
-              max="100"
-              value={discountPercent}
-              onChange={setDiscountPercent}
-              placeholder="20"
-              suffix="%"
-              required
-            />
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium" style={{ color: 'var(--color-card-foreground)' }}>Discount Type</label>
+              <RadioGroup
+                options={[
+                  { value: 'percentage', label: 'Percentage Discount (e.g. 20% off total points)' },
+                  { value: 'point_value', label: 'Points Value Reduction (e.g. reduce price worth per point by $0.20)' }
+                ]}
+                value={discountType}
+                onChange={(val) => setDiscountType(val as any)}
+              />
+            </div>
+
+            {discountType === 'percentage' ? (
+              <InputField
+                label="Discount Percentage"
+                type="number"
+                min="1"
+                max="100"
+                value={discountPercent}
+                onChange={setDiscountPercent}
+                placeholder="20"
+                suffix="%"
+                required
+              />
+            ) : (
+              <InputField
+                label="Point Value Reduction (USD)"
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={pointValueDiscount}
+                onChange={setPointValueDiscount}
+                placeholder="0.20"
+                prefix="$"
+                required
+              />
+            )}
 
             <InputField
               label="Expiration Date (Optional)"
@@ -809,31 +870,33 @@ function CouponsTab({ accessToken }: { accessToken: string }) {
       )}
 
       {coupons.length === 0 ? (
-        <div className="bg-card rounded-[var(--radius-lg)] p-12 text-center text-muted-foreground">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center text-zinc-500 font-mono text-sm">
           No coupons yet
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
           {coupons.map((coupon, index) => (
             <AnimatedCard key={coupon.code} delay={index * 0.05}>
-              <div className="bg-card border border-border rounded-[var(--radius-lg)] p-6 flex flex-col gap-4">
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 flex flex-col gap-4 hover:border-zinc-700 transition-colors">
                 <div className="flex justify-between items-start">
                   <div className="flex flex-col gap-2">
-                    <h3 className="text-lg font-mono text-card-foreground">{coupon.code}</h3>
-                    <span className="text-2xl font-medium text-primary">
-                      {coupon.discountPercent}% off
+                    <h3 className="text-lg font-mono font-bold text-zinc-100">{coupon.code}</h3>
+                    <span className="text-xl font-semibold text-amber-500">
+                      {coupon.discountType === 'point_value' 
+                        ? `-$${coupon.pointValueDiscount} per point` 
+                        : `${coupon.discountPercent}% off`}
                     </span>
                   </div>
                   <Badge label={coupon.active ? 'Active' : 'Inactive'} variant={coupon.active ? 'success' : 'default' as any} />
                 </div>
 
                 {coupon.expiresAt && (
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-xs text-zinc-400 font-mono">
                     Expires: {format(new Date(coupon.expiresAt), 'MMM d, yyyy h:mm a')}
                   </div>
                 )}
 
-                <div className="flex gap-3 pt-4 border-t border-border">
+                <div className="flex gap-3 pt-4 border-t border-zinc-800">
                   <Button
                     variant="neutral"
                     size="small"
@@ -941,7 +1004,7 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
 
   if (loading) {
     return (
-      <div className="bg-card rounded-[var(--radius-lg)] p-12 text-center text-muted-foreground">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center text-zinc-500 font-mono text-sm">
         Loading orders...
       </div>
     );
@@ -949,23 +1012,23 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
 
   if (orders.length === 0) {
     return (
-      <div className="bg-card rounded-[var(--radius-lg)] p-12 text-center text-muted-foreground">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center text-zinc-500 font-mono text-sm">
         No orders yet
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 text-left">
       {orders.map((order, index) => (
         <AnimatedCard key={order.id} delay={index * 0.05}>
-          <div className="bg-card border border-border rounded-[var(--radius-lg)] p-6 flex flex-col gap-6">
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 flex flex-col gap-6 hover:border-zinc-705 transition-colors">
             <div className="flex justify-between items-start">
               <div className="flex flex-col gap-1">
-                <span className="font-mono text-sm text-muted-foreground">
-                  {order.id.split(':')[1]}
+                <span className="font-mono text-xs text-zinc-400 font-bold uppercase tracking-wider">
+                  Order ID: {order.id.split(':')[1]}
                 </span>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-xs text-zinc-500 font-mono">
                   {format(new Date(order.createdAt), 'MMM d, yyyy h:mm a')}
                 </span>
               </div>
@@ -978,86 +1041,73 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex flex-col gap-4">
                 <div>
-                  <span className="text-sm text-muted-foreground">Customer Email</span>
-                  <p className="text-card-foreground">{order.userEmail}</p>
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Customer Email</span>
+                  <p className="text-sm text-zinc-200 mt-0.5">{order.userEmail}</p>
                 </div>
                 <div>
-                  <span className="text-sm text-muted-foreground">Discord Username</span>
-                  <p className="text-card-foreground font-mono">{order.discordUsername}</p>
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Discord Username</span>
+                  <p className="text-sm text-zinc-200 font-mono mt-0.5">{order.discordUsername}</p>
                 </div>
                 {order.codGameId && (
                   <div>
-                    <span className="text-sm text-muted-foreground">COD GAME ID</span>
-                    <p className="text-card-foreground font-mono">{order.codGameId}</p>
+                    <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">COD GAME ID</span>
+                    <p className="text-sm text-zinc-200 font-mono mt-0.5">{order.codGameId}</p>
                   </div>
                 )}
                 {order.couponCode && (
                   <div>
-                    <span className="text-sm text-muted-foreground">Coupon Applied</span>
-                    <p className="text-primary">{order.couponCode}</p>
+                    <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Coupon Applied</span>
+                    <p className="text-sm text-amber-500 font-semibold mt-0.5">{order.couponCode}</p>
                   </div>
                 )}
               </div>
 
               <div className="flex flex-col gap-4">
-                {order.items.map((item: any, idx: number) => (
-                  <div key={idx} className="text-sm">
-                    <span className="text-card-foreground">{item.name}</span>
-                    <span className="text-muted-foreground"> × {item.quantity}</span>
-                  </div>
-                ))}
-                <div className="text-lg font-medium text-foreground mt-2 pt-4 border-t border-border">
-                  Total: ${order.discountedTotal.toFixed(2)}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Order Items</span>
+                  {order.items.map((item: any, idx: number) => (
+                    <div key={idx} className="text-xs text-zinc-300">
+                      <span className="font-medium text-zinc-100">{item.name}</span>
+                      <span className="text-zinc-500"> × {item.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-lg font-serif text-emerald-400 mt-2 pt-4 border-t border-zinc-800">
+                  Total: Rs {typeof order.discountedTotal === 'number' ? order.discountedTotal.toFixed(2) : order.discountedTotal}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-border flex flex-col gap-2">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Payment Type:</span>
-                    <span className="font-medium text-foreground uppercase">{order.paymentType || 'full'}</span>
+                <div className="mt-4 pt-4 border-t border-zinc-800 flex flex-col gap-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-zinc-500">Payment Type:</span>
+                    <span className="font-mono text-zinc-200 uppercase">{order.paymentType || 'full'}</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Payment Status:</span>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-zinc-500">Payment Status:</span>
                     <Badge
-                      label={(order.paymentStatus || 'pending').toUpperCase()}
-                      variant={
-                        order.paymentStatus === 'approved' ? 'success' :
-                        order.paymentStatus === 'rejected' ? 'danger' : 'warning' as any
-                      }
+                      label={(order.paymentStatus || 'approved').toUpperCase()}
+                      variant="success"
                     />
                   </div>
-                  {order.paymentType === 'partial' ? (
-                    <>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Paid Amount:</span>
-                        <span className="font-semibold text-emerald-500">${(order.partialAmount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Pending Balance:</span>
-                        <span className="font-semibold text-amber-500">${(order.remainingAmount || 0).toFixed(2)}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Amount Paid:</span>
-                      <span className="font-semibold text-foreground">
-                        {order.paymentStatus === 'approved' ? `$${order.discountedTotal.toFixed(2)}` : '$0.00'}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-zinc-500">Points Deducted:</span>
+                    <span className="font-semibold text-amber-500 font-mono">
+                      {order.pointsDeducted ?? order.pointsTotal ?? 0} Points
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {editingPaymentId === order.id && (
-              <div className="mt-2 p-4 border rounded-lg flex flex-col gap-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-muted)' }}>
-                <h4 className="text-sm font-semibold text-foreground">Edit Payment Details</h4>
+              <div className="mt-2 p-4 border border-zinc-800 rounded-xl flex flex-col gap-4 bg-zinc-950/80">
+                <h4 className="text-xs font-bold font-mono tracking-wider uppercase text-zinc-300">Edit Payment Details</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Payment Type</label>
+                    <label className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Payment Type</label>
                     <select
                       value={editPaymentType}
                       onChange={(e) => setEditPaymentType(e.target.value as any)}
-                      className="p-2 border rounded bg-background text-foreground text-sm outline-none"
+                      className="p-2 border rounded-xl bg-zinc-900 border-zinc-800 text-zinc-100 text-xs outline-none focus:border-zinc-700 transition-all"
                     >
                       <option value="full">Full Payment</option>
                       <option value="partial">Partial Payment</option>
@@ -1065,11 +1115,11 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Payment Status</label>
+                    <label className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Payment Status</label>
                     <select
                       value={editPaymentStatus}
                       onChange={(e) => setEditPaymentStatus(e.target.value as any)}
-                      className="p-2 border rounded bg-background text-foreground text-sm outline-none"
+                      className="p-2 border rounded-xl bg-zinc-900 border-zinc-800 text-zinc-100 text-xs outline-none focus:border-zinc-700 transition-all"
                     >
                       <option value="pending">Pending</option>
                       <option value="approved">Approved</option>
@@ -1079,7 +1129,7 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
 
                   {editPaymentType === 'partial' && (
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Paid Amount ($)</label>
+                      <label className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Paid Amount ($)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -1087,7 +1137,7 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
                         max={order.discountedTotal}
                         value={editPartialAmount}
                         onChange={(e) => setEditPartialAmount(e.target.value)}
-                        className="p-2 border rounded bg-background text-foreground text-sm outline-none"
+                        className="p-2 border rounded-xl bg-zinc-900 border-zinc-800 text-zinc-100 text-xs outline-none focus:border-zinc-700 transition-all"
                       />
                     </div>
                   )}
@@ -1114,27 +1164,25 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
               </div>
             )}
 
-            <div className="flex gap-3 pt-4 border-t border-border items-center flex-wrap">
+            <div className="flex gap-3 pt-4 border-t border-zinc-800 items-center flex-wrap">
               <select
                 value={order.status}
                 onChange={(e) => handleUpdateStatus(order.id, e.target.value)}
-                className="cursor-pointer outline-none"
+                className="cursor-pointer outline-none transition-all duration-200 hover:border-zinc-700 font-mono text-xs"
                 style={{
-                  backgroundColor: 'var(--color-input-background, var(--color-card))',
-                  color: 'var(--color-card-foreground)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: '#09090b',
+                  color: '#fafafa',
+                  border: '1px solid #27272a',
+                  borderRadius: '12px',
                   padding: '0.5rem 0.75rem',
-                  fontFamily: 'inherit',
-                  fontSize: '0.875rem',
                   minWidth: '160px',
                 }}
               >
-                <option value="pending" style={{ backgroundColor: 'var(--color-card)', color: 'var(--color-card-foreground)' }}>Pending</option>
-                <option value="processing" style={{ backgroundColor: 'var(--color-card)', color: 'var(--color-card-foreground)' }}>Processing</option>
-                <option value="completed" style={{ backgroundColor: 'var(--color-card)', color: 'var(--color-card-foreground)' }}>Completed</option>
-                <option value="delivered" style={{ backgroundColor: 'var(--color-card)', color: 'var(--color-card-foreground)' }}>Delivered</option>
-                <option value="cancelled" style={{ backgroundColor: 'var(--color-card)', color: 'var(--color-card-foreground)' }}>Cancelled</option>
+                <option value="pending" style={{ backgroundColor: '#09090b', color: '#fafafa' }}>Pending</option>
+                <option value="processing" style={{ backgroundColor: '#09090b', color: '#fafafa' }}>Processing</option>
+                <option value="completed" style={{ backgroundColor: '#09090b', color: '#fafafa' }}>Completed</option>
+                <option value="delivered" style={{ backgroundColor: '#09090b', color: '#fafafa' }}>Delivered</option>
+                <option value="cancelled" style={{ backgroundColor: '#09090b', color: '#fafafa' }}>Cancelled</option>
               </select>
               <Button
                 variant="neutral"
@@ -1160,6 +1208,121 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
           </div>
         </AnimatedCard>
       ))}
+    </div>
+  );
+}
+
+function PointsTab({ accessToken }: { accessToken: string }) {
+  const [pointPrice, setPointPrice] = useState<number>(0.10);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [samplePoints, setSamplePoints] = useState<string>('100');
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        setLoading(true);
+        const res = await api.getPointsSettings();
+        if (res?.settings?.pointPrice) {
+          setPointPrice(res.settings.pointPrice);
+        }
+      } catch (e) {
+        console.error('Failed to load points settings:', e);
+        toast('Failed to load points settings');
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSettings();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.updatePointsSettings(accessToken, pointPrice);
+      toast('Points settings updated and broadcast notification sent successfully!');
+    } catch (e: any) {
+      console.error('Failed to save points settings:', e);
+      toast(e.message || 'Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const pts = parseFloat(samplePoints) || 0;
+  const sampleTotal = (pts * pointPrice).toFixed(2);
+
+  if (loading) {
+    return <div className="text-center py-10 text-zinc-500 font-mono text-sm">Loading settings...</div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-6 text-left">
+      {/* Point Price Card */}
+      <div className="rounded-2xl border p-6 flex flex-col gap-6 bg-zinc-900 border-zinc-800">
+        <div>
+          <h2 className="text-lg font-semibold mb-1 text-white font-serif">
+            Points Value Updation
+          </h2>
+          <p className="text-xs text-zinc-400 font-sans">
+            Set the Rupees worth of each play point. Users will be notified when the price changes.
+          </p>
+        </div>
+
+        <div className="max-w-lg flex flex-col gap-5">
+          {/* Calculator Display */}
+          <div className="rounded-2xl border p-5 flex flex-col gap-3 bg-zinc-950 border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.05)]">
+            <p className="text-[10px] uppercase font-mono tracking-widest text-zinc-500">Point Price Formula</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-3xl font-mono font-bold text-zinc-100">1</span>
+              <span className="text-xl text-zinc-400">Point ×</span>
+              <span className="text-3xl font-mono font-bold text-amber-500">{pointPrice.toFixed(2)}</span>
+              <span className="text-xl text-zinc-400">=</span>
+              <span className="text-3xl font-mono font-bold text-emerald-400">Rs {pointPrice.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <InputField
+            label="Set Price per Point (Rs)"
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={String(pointPrice)}
+            onChange={(val) => setPointPrice(parseFloat(val) || 0)}
+            placeholder="e.g. 2.00"
+          />
+
+          {/* Sample Calculator */}
+          <div className="rounded-2xl border p-4 flex flex-col gap-3 bg-zinc-950/40 border-zinc-800">
+            <p className="text-xs font-semibold text-zinc-300 font-serif">🧮 Sample Calculator</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <input
+                type="number"
+                value={samplePoints}
+                onChange={(e) => setSamplePoints(e.target.value)}
+                className="w-28 rounded-xl p-2 text-lg font-mono font-bold border bg-zinc-900 border-zinc-800 text-zinc-100 outline-none focus:border-zinc-700 transition-all"
+                placeholder="100"
+              />
+              <span className="text-zinc-400 text-sm">Points ×</span>
+              <span className="font-mono font-bold text-amber-500 text-sm">{pointPrice.toFixed(2)}</span>
+              <span className="text-zinc-400 text-sm">=</span>
+              <span className="text-xl font-mono font-bold text-emerald-400">Rs {sampleTotal}</span>
+            </div>
+            <p className="text-[11px] text-zinc-500">
+              An order of {samplePoints || 0} points costs Rs {sampleTotal} at the current rate.
+            </p>
+          </div>
+
+          <Button
+            variant="primary"
+            onClick={handleSave}
+            disabled={saving || pointPrice <= 0}
+            className="w-fit"
+          >
+            {saving ? 'Updating...' : 'Update Point Price'}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

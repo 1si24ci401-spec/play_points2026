@@ -1,10 +1,7 @@
 export const formatCurrency = (amount: number): string => {
-  return `₹${amount.toLocaleString('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return `Rs ${amount.toFixed(2)}`;
 };
 
 export const parseCurrency = (formatted: string): number => {
-  return parseFloat(formatted.replace(/[₹,]/g, ''));
+  return parseFloat(formatted.replace(/[^\d.]/g, '')) || 0;
 };

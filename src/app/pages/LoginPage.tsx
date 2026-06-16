@@ -7,6 +7,8 @@ import { PlayPointsMatrixRain } from '../components/PlayPointsMatrixRain';
 import { MinionRobot } from '../components/MinionRobot';
 import { useAuth } from '../context/AuthContext';
 
+import { useEffect } from 'react';
+
 export function LoginPage() {
   const navigate = useNavigate();
   const { signIn, user } = useAuth();
@@ -14,6 +16,16 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/products', { replace: true });
+      }
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +38,8 @@ export function LoginPage() {
       setShowSuccess(true);
 
       setTimeout(() => {
-        // Redirect based on the role assigned by the server — no email checks here
+        // Mark loading as seen so subsequent navigations don't show it
+        sessionStorage.setItem('hasSeenLoading', 'true');
         if (profile?.role === 'admin') {
           navigate('/admin', { replace: true });
           toast('Welcome back, Admin!');
@@ -34,13 +47,15 @@ export function LoginPage() {
           navigate('/products', { replace: true });
           toast('Welcome back!');
         }
-      }, 1500);
+      }, 1200);
     } catch (error: any) {
       console.error('Login error:', error);
 
       // Show helpful error message
       if (error.message?.includes('Invalid login credentials')) {
         toast('Invalid email or password. If this is your first time, please sign up instead.');
+      } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError') || error.message?.includes('fetch')) {
+        toast('⚠️ Network error — please check your connection and try again.');
       } else {
         toast(error.message || 'Login failed. Please try again.');
       }
@@ -49,10 +64,10 @@ export function LoginPage() {
   };
 
   return (
-    <div className="size-full flex items-center justify-center p-6 relative overflow-hidden" style={{ backgroundColor: 'var(--color-background)' }}>
+    <div className="min-h-screen w-full flex items-center justify-center p-6 pt-32 pb-12 relative overflow-hidden" style={{ backgroundColor: 'var(--color-background)' }}>
       <PlayPointsMatrixRain />
       <LoginSuccessAnimation show={showSuccess} />
-      <div className="w-full max-w-md rounded-[var(--radius-lg)] border p-8 flex flex-col gap-6 z-10 relative mt-20" style={{
+      <div className="w-full max-w-md rounded-[var(--radius-lg)] border p-8 flex flex-col gap-6 z-10 relative" style={{
         backgroundColor: 'var(--color-card)',
         borderColor: 'var(--color-border)'
       }}>

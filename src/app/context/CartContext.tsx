@@ -6,6 +6,7 @@ interface CartItem {
   productId: string;
   name: string;
   price: number;
+  pointsCost?: number;
   quantity: number;
   description?: string;
 }
@@ -17,6 +18,7 @@ interface CartContextType {
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   total: number;
+  totalPoints: number;
   itemCount: number;
 }
 
@@ -74,6 +76,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             productId: product.id,
             name: product.name,
             price: product.price,
+            pointsCost: product.pointsCost,
             quantity: 1,
             description: product.description,
           },
@@ -116,11 +119,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalPoints = items.reduce((sum, item) => sum + (item.pointsCost || Math.round(item.price)) * item.quantity, 0);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <CartContext.Provider
-      value={{ items, addToCart, removeFromCart, updateQuantity, clearCart, total, itemCount }}
+      value={{ items, addToCart, removeFromCart, updateQuantity, clearCart, total, totalPoints, itemCount }}
     >
       {children}
     </CartContext.Provider>

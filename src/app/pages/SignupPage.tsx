@@ -20,10 +20,7 @@ export function SignupPage() {
     setLoading(true);
 
     try {
-      await signUp(email, password, fullName, username);
-
-      // signUp calls signIn internally; fetch the profile role for redirect
-      const profile = await signIn(email, password);
+      const profile = await signUp(email, password, fullName, username);
       if (profile?.role === 'admin') {
         navigate('/admin', { replace: true });
         toast('Admin account created successfully!');
@@ -33,23 +30,26 @@ export function SignupPage() {
       }
     } catch (error: any) {
       console.error('Signup error:', error);
-      toast('Signup failed. Please try again.');
+      toast(error.message || 'Signup failed. Please try again.');
       setLoading(false);
     }
   };
 
   return (
-    <div className="size-full bg-brand-tertiary flex items-center justify-center p-2xl overflow-auto relative">
+    <div className="min-h-screen w-full flex items-center justify-center p-6 pt-32 pb-12 relative overflow-hidden" style={{ backgroundColor: 'var(--color-background)' }}>
       <PlayPointsMatrixRain />
-      <div className="relative mt-24 w-full max-w-md bg-surface-bg rounded-corner-lg p-xl flex flex-col gap-xl my-2xl z-10">
+      <div className="relative w-full max-w-md rounded-[var(--radius-lg)] border p-8 flex flex-col gap-6 z-10" style={{
+        backgroundColor: 'var(--color-card)',
+        borderColor: 'var(--color-border)'
+      }}>
         {/* Minion Robot peeking from top edge of card */}
         <div className="absolute -top-[125px] left-1/2 -translate-x-1/2">
           <MinionRobot />
         </div>
 
-        <div className="flex flex-col gap-xs text-center pt-2">
-          <h1 className="text-text-primary">Create Account</h1>
-          <p className="text-text-secondary">Join us to start shopping</p>
+        <div className="flex flex-col gap-2 text-center pt-2">
+          <h1 className="text-3xl font-medium" style={{ color: 'var(--color-foreground)' }}>Create Account</h1>
+          <p style={{ color: 'var(--color-muted-foreground)' }}>Join us to start shopping</p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-lg">
@@ -97,9 +97,9 @@ export function SignupPage() {
           </Button>
         </form>
 
-        <div className="text-center text-text-secondary">
+        <div className="text-center text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
           Already have an account?{' '}
-          <Link to="/login" className="text-brand-primary hover:underline">
+          <Link to="/login" className="font-medium hover:underline" style={{ color: 'var(--color-primary)' || '#6366F1' }}>
             Sign in
           </Link>
         </div>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '@figma/astraui';
 import { Gift, Sparkles, ShieldAlert, ArrowRight, Edit } from 'lucide-react';
-import { AppNav } from '../components/AppNav';
+import { AppNav, getUserNavPermissions, getFirstPermittedPage } from '../components/AppNav';
 import { ScrollProgress } from '../components/ScrollProgress';
 import { OffersEditModal } from '../components/OffersEditModal';
 import { useAuth } from '../context/AuthContext';
@@ -24,11 +24,35 @@ export function OffersPage() {
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+  const [perms, setPerms] = useState<Record<string, boolean> | null>(() => 
+    user ? getUserNavPermissions(user.id) : null
+  );
+
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/login');
+    if (!user) return;
+    setPerms(getUserNavPermissions(user.id));
+
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.userId === user.id) {
+        setPerms(customEvent.detail.perms);
+      }
+    };
+    window.addEventListener('nav-permissions-updated', handleUpdate);
+    return () => window.removeEventListener('nav-permissions-updated', handleUpdate);
+  }, [user]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        navigate('/login');
+        return;
+      }
+      if (perms && perms.offers === false) {
+        navigate(getFirstPermittedPage(user.id, user.tier));
+      }
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, perms]);
 
   useEffect(() => {
     if (user) {
@@ -73,13 +97,13 @@ export function OffersPage() {
       <ScrollProgress />
       <AppNav />
 
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto md:pt-20 pb-16 md:pb-0">
         {/* Header */}
-        <div className="sticky top-0 z-20 backdrop-blur-lg border-b" style={{
+        <div className="backdrop-blur-lg border-b" style={{
           backgroundColor: 'var(--color-background)',
           borderColor: 'var(--color-border)'
         }}>
-          <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -96,7 +120,7 @@ export function OffersPage() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="flex items-center gap-3"
+                className="flex flex-wrap items-center gap-2"
               >
                 <Button
                   variant="primary"

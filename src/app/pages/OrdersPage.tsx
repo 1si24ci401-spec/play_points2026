@@ -4,7 +4,7 @@ import { Badge, Button } from '@figma/astraui';
 import { X, Edit3, Package, Clock, CheckCircle, XCircle, Plus, Minus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
-import { AppNav } from '../components/AppNav';
+import { AppNav, getUserNavPermissions, getFirstPermittedPage } from '../components/AppNav';
 import { ScrollProgress } from '../components/ScrollProgress';
 import { OrderCancelledAnimation } from '../components/OrderCancelledAnimation';
 import { useAuth } from '../context/AuthContext';
@@ -17,8 +17,11 @@ interface Order {
   items: any[];
   total: number;
   discountedTotal: number;
+  pointsTotal?: number;
+  pointsDeducted?: number;
   couponCode?: string;
   discordUsername: string;
+  codGameId?: string;
   status: string;
   paymentType: 'full' | 'partial';
   paymentStatus: 'pending' | 'approved' | 'rejected';
@@ -46,11 +49,35 @@ export function OrdersPage() {
     return () => clearInterval(timer);
   }, []);
 
+  const [perms, setPerms] = useState<Record<string, boolean> | null>(() => 
+    user ? getUserNavPermissions(user.id) : null
+  );
+
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/login');
+    if (!user) return;
+    setPerms(getUserNavPermissions(user.id));
+
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.userId === user.id) {
+        setPerms(customEvent.detail.perms);
+      }
+    };
+    window.addEventListener('nav-permissions-updated', handleUpdate);
+    return () => window.removeEventListener('nav-permissions-updated', handleUpdate);
+  }, [user]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        navigate('/login');
+        return;
+      }
+      if (perms && perms.orders === false) {
+        navigate(getFirstPermittedPage(user.id, user.tier));
+      }
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, perms]);
 
   useEffect(() => {
     if (accessToken) {
@@ -204,9 +231,9 @@ export function OrdersPage() {
       <AppNav />
       <OrderCancelledAnimation show={showCancelAnimation} />
 
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto md:pt-20 pb-16 md:pb-0">
         {/* Header */}
-        <div className="sticky top-0 z-20 backdrop-blur-lg border-b" style={{
+        <div className="backdrop-blur-lg border-b" style={{
           backgroundColor: 'var(--color-background)',
           borderColor: 'var(--color-border)'
         }}>
@@ -339,7 +366,12 @@ export function OrdersPage() {
                     <div className="pt-4 border-t space-y-2 mb-4" style={{ borderColor: 'var(--color-border)' }}>
                       <div className="flex justify-between text-sm">
                         <span style={{ color: 'var(--color-muted-foreground)' }}>Subtotal</span>
-                        <span style={{ color: 'var(--color-foreground)' }}>{formatCurrency(order.total)}</span>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span style={{ color: 'var(--color-foreground)' }}>{formatCurrency(order.total)}</span>
+                          {(order.pointsTotal || 0) > 0 && (
+                            <span className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>({order.pointsTotal} Pts)</span>
+                          )}
+                        </div>
                       </div>
                       {order.couponCode && (
                         <div className="flex justify-between text-sm">
@@ -353,15 +385,21 @@ export function OrdersPage() {
                       )}
                       <div className="flex justify-between items-center pt-2">
                         <span className="text-lg font-medium" style={{ color: 'var(--color-foreground)' }}>
-                          Total
+                          Total (Rs)
                         </span>
-                        <span className="text-2xl font-bold" style={{ color: 'var(--color-foreground)' }}>
+                        <span className="text-2xl font-bold text-emerald-500">
                           {formatCurrency(order.discountedTotal)}
                         </span>
                       </div>
 
                       {/* Detailed Paid and Pending Details */}
                       <div className="mt-2 pt-2 border-t border-dashed space-y-1.5" style={{ borderColor: 'var(--color-border)' }}>
+                        <div className="flex justify-between text-sm">
+                          <span style={{ color: 'var(--color-muted-foreground)' }}>Points Deducted</span>
+                          <span className="font-bold text-indigo-400">
+                            {order.pointsDeducted ?? order.pointsTotal ?? 0} Points
+                          </span>
+                        </div>
                         <div className="flex justify-between text-sm">
                           <span style={{ color: 'var(--color-muted-foreground)' }}>Payment Type</span>
                           <span className="font-semibold uppercase text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--color-muted)', color: 'var(--color-foreground)' }}>

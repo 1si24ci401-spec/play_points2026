@@ -5,6 +5,7 @@ import { Plus, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ProductRevealAnimation } from './ProductRevealAnimation';
 import { formatCurrency } from '../../utils/currency';
+import { useAuth } from '../context/AuthContext';
 
 interface Product {
   id: string;
@@ -13,6 +14,7 @@ interface Product {
   price: number;
   category?: string;
   image?: string;
+  pointsCost?: number;
 }
 
 interface ProductCarouselProps {
@@ -21,6 +23,7 @@ interface ProductCarouselProps {
 }
 
 export function ProductCarousel({ products, onAddToCart }: ProductCarouselProps) {
+  const { user } = useAuth();
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     align: 'start',
@@ -99,13 +102,15 @@ export function ProductCarousel({ products, onAddToCart }: ProductCarouselProps)
               >
                 <ProductRevealAnimation delay={index * 0.05}>
                   <div
-                    className="rounded-[var(--radius-lg)] border overflow-hidden h-full flex flex-col transition-colors duration-300"
+                    className={`rounded-[var(--radius-lg)] border overflow-hidden h-full flex flex-col transition-all duration-300 ${
+                      user?.tier === 'premium' ? 'premium-glow border-[var(--color-primary)]/45' : ''
+                    }`}
                     style={{
                       backgroundColor: 'var(--color-card)',
                       borderColor: 'var(--color-border)',
                     }}
                   >
-                    {product.image ? (
+                    {product.image && product.image.trim() !== '' && product.image !== 'null' && product.image !== 'undefined' ? (
                       <img
                         src={product.image}
                         alt={product.name}
@@ -125,6 +130,11 @@ export function ProductCarousel({ products, onAddToCart }: ProductCarouselProps)
 
                     <div className="p-4 flex flex-col gap-3 flex-1">
                       <div className="flex flex-col gap-2">
+                        {user?.tier === 'premium' && (
+                          <span className="text-[9px] uppercase font-bold tracking-widest text-[var(--color-primary)] animate-pulse">
+                            ★ Premium Exclusive Item ★
+                          </span>
+                        )}
                         <h3 className="text-lg font-medium line-clamp-1" style={{ color: 'var(--color-card-foreground)' }}>
                           {product.name}
                         </h3>
@@ -146,8 +156,11 @@ export function ProductCarousel({ products, onAddToCart }: ProductCarouselProps)
                       </p>
 
                       <div className="flex items-center justify-between gap-3 mt-auto pt-2">
-                        <span className="text-2xl font-bold" style={{ color: 'var(--color-foreground)' }}>
-                          {formatCurrency(product.price)}
+                        <span className="text-lg font-bold flex flex-col" style={{ color: 'var(--color-foreground)' }}>
+                          <span>{product.pointsCost || Math.round(product.price)} Points</span>
+                          <span className="text-[11px] font-normal" style={{ color: 'var(--color-muted-foreground)' }}>
+                            Valued at {formatCurrency(product.price)}
+                          </span>
                         </span>
                         <Button
                           variant="primary"

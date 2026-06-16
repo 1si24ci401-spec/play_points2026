@@ -123,4 +123,20 @@ export const api = {
 
   markNotificationRead: (token: string, notificationId: string) =>
     apiCall(`/notifications/${notificationId}/read`, { method: 'POST', token }),
+
+  chat: (token: string, messages: any[], model?: string) =>
+    apiCall('/chat', { method: 'POST', body: { messages, model }, token }),
+
+  // Points System
+  getPointsSettings: () =>
+    apiCall('/points-settings'),
+
+  updatePointsSettings: (token: string, pointPrice: number) =>
+    apiCall('/points-settings', { method: 'POST', body: { pointPrice }, token }),
+
+  updateUserPoints: (token: string, userId: string, points: number) =>
+    apiCall(`/users/${userId}/points`, { method: 'PUT', body: { points }, token }),
+
+  updateUserTier: (token: string, userId: string, tier: 'normal' | 'premium') =>
+    apiCall(`/users/${userId}/tier`, { method: 'PUT', body: { tier }, token }),
 };

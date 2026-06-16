@@ -8,6 +8,8 @@ interface User {
   fullName?: string;
   username?: string;
   role?: string;
+  points?: number;
+  tier?: 'normal' | 'premium';
 }
 
 interface AuthContextType {
@@ -15,9 +17,10 @@ interface AuthContextType {
   accessToken: string | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<User>;
-  signUp: (email: string, password: string, fullName: string, username: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string, username: string) => Promise<User>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  updatePointsLocally: (points: number) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,19 +43,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setAccessToken(session.access_token);
 
-      // Get user profile from backend
-      const profile = await api.getProfile(session.access_token);
-      setUser(profile.user);
+      // Try to load cached profile immediately to reduce perceived latency
+      const cached = sessionStorage.getItem('pp_user_profile');
+      if (cached) {
+        try {
+          const cachedUser = JSON.parse(cached);
+          setUser(cachedUser);
+          // Apply premium theme from cache immediately  
+          if (typeof document !== 'undefined') {
+            document.documentElement.classList.remove('theme-premium-gold', 'theme-premium-platinum', 'theme-premium-emerald');
+            if (cachedUser?.tier === 'premium') {
+              const saved = sessionStorage.getItem('pp_premium_theme') || 'theme-premium-gold';
+              document.documentElement.classList.add(saved);
+            }
+          }
+        } catch (_) { /* ignore cache parse error */ }
+      }
 
-      // Handle FCM push initialization
+      // Get user profile from backend (always fetch fresh data)
+      const profile = await api.getProfile(session.access_token);
+      const fetchedUser = profile.user;
+      setUser(fetchedUser);
+
+      // Cache for fast subsequent loads
+      sessionStorage.setItem('pp_user_profile', JSON.stringify(fetchedUser));
+
+      // Apply premium theme
+      if (typeof document !== 'undefined') {
+        document.documentElement.classList.remove('theme-premium-gold', 'theme-premium-platinum', 'theme-premium-emerald');
+        if (fetchedUser?.tier === 'premium') {
+          // Keep the same theme within session for consistency; randomize only on new session
+          let premiumTheme = sessionStorage.getItem('pp_premium_theme');
+          if (!premiumTheme) {
+            const themes = ['theme-premium-gold', 'theme-premium-platinum', 'theme-premium-emerald'];
+            premiumTheme = themes[Math.floor(Math.random() * themes.length)];
+            sessionStorage.setItem('pp_premium_theme', premiumTheme);
+          }
+          document.documentElement.classList.add(premiumTheme);
+        }
+      }
+
+      // Handle FCM push initialization (non-blocking)
       const provider = import.meta.env.VITE_PUSH_PROVIDER || 'webpush';
       if (provider === 'fcm') {
-        try {
-          const { initFirebaseFCM } = await import('../../utils/firebase');
-          await initFirebaseFCM();
-        } catch (e) {
-          console.error('[FCM] Init failed:', e);
-        }
+        import('../../utils/firebase').then(({ initFirebaseFCM }) => {
+          initFirebaseFCM().catch((e: any) => console.error('[FCM] Init failed:', e));
+        });
       }
     } catch (error) {
       console.error('Error refreshing user:', error);
@@ -73,6 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null);
         setAccessToken(null);
+        sessionStorage.removeItem('pp_user_profile');
+        sessionStorage.removeItem('pp_premium_theme');
       }
     });
 
@@ -100,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(data.session.access_token);
     await refreshUser();
 
-    // Fetch the latest profile and return it so callers can role-route
+    // Read the user state that refreshUser just set (no second API call)
     const profile = await api.getProfile(data.session.access_token);
     return profile.user as User;
   };
@@ -110,11 +148,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.signup(email, password, fullName, username);
 
       // Auto sign in after signup
-      await signIn(email, password);
+      return await signIn(email, password);
     } catch (error: any) {
       console.error('Signup error:', error);
       throw new Error(error.message || 'Failed to create account');
     }
+  };
+
+  const updatePointsLocally = (points: number) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, points };
+      sessionStorage.setItem('pp_user_profile', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const signOut = async () => {
@@ -124,12 +171,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Clean up FCM on sign-out (FCM tokens remain valid; just clear local state)
     console.log('[FCM] User signed out – FCM token will be refreshed on next login');
 
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.remove('theme-premium-gold', 'theme-premium-platinum', 'theme-premium-emerald');
+    }
     setUser(null);
     setAccessToken(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, loading, signIn, signUp, signOut, refreshUser }}>
+    <AuthContext.Provider value={{ user, accessToken, loading, signIn, signUp, signOut, refreshUser, updatePointsLocally }}>
       {children}
     </AuthContext.Provider>
   );

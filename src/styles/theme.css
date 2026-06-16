@@ -78,6 +78,48 @@
   --sidebar-ring: oklch(0.439 0 0);
 }
 
+html.theme-premium-gold {
+  --background: #060608;
+  --foreground: #f4e5c3;
+  --card: #121216;
+  --card-foreground: #f4e5c3;
+  --primary: #d4af37;
+  --primary-foreground: #060608;
+  --border: rgba(212, 175, 55, 0.2);
+  --accent: #1e1e24;
+  --accent-foreground: #d4af37;
+  --muted: #16161c;
+  --muted-foreground: #a69677;
+}
+
+html.theme-premium-platinum {
+  --background: #08090c;
+  --foreground: #f1f2f5;
+  --card: #14151b;
+  --card-foreground: #f1f2f5;
+  --primary: #d5d6d8;
+  --primary-foreground: #08090c;
+  --border: rgba(213, 214, 216, 0.25);
+  --accent: #1e1f26;
+  --accent-foreground: #d5d6d8;
+  --muted: #17181f;
+  --muted-foreground: #a1a3a7;
+}
+
+html.theme-premium-emerald {
+  --background: #021610;
+  --foreground: #f3e5d0;
+  --card: #05291d;
+  --card-foreground: #f3e5d0;
+  --primary: #e8b2a5;
+  --primary-foreground: #021610;
+  --border: rgba(232, 178, 165, 0.25);
+  --accent: #093c2b;
+  --accent-foreground: #e8b2a5;
+  --muted: #073123;
+  --muted-foreground: #8dbba4;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

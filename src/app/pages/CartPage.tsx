@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, IconButton } from '@figma/astraui';
 import { Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
 import { motion } from 'motion/react';
-import { AppNav } from '../components/AppNav';
+import { AppNav, getUserNavPermissions, getFirstPermittedPage } from '../components/AppNav';
 import { ScrollProgress } from '../components/ScrollProgress';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -12,15 +12,39 @@ import { formatCurrency } from '../../utils/currency';
 export function CartPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { items, removeFromCart, updateQuantity, total } = useCart();
+  const { items, removeFromCart, updateQuantity, totalPoints } = useCart();
+
+  const [perms, setPerms] = useState<Record<string, boolean> | null>(() => 
+    user ? getUserNavPermissions(user.id) : null
+  );
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/login');
-    }
-  }, [user, authLoading, navigate]);
+    if (!user) return;
+    setPerms(getUserNavPermissions(user.id));
 
-  if (authLoading || !user) {
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.userId === user.id) {
+        setPerms(customEvent.detail.perms);
+      }
+    };
+    window.addEventListener('nav-permissions-updated', handleUpdate);
+    return () => window.removeEventListener('nav-permissions-updated', handleUpdate);
+  }, [user]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        navigate('/login');
+        return;
+      }
+      if (perms && perms.cart === false) {
+        navigate(getFirstPermittedPage(user.id, user.tier));
+      }
+    }
+  }, [user, authLoading, navigate, perms]);
+
+  if (authLoading || !user || (perms && perms.cart === false)) {
     return null;
   }
 
@@ -29,9 +53,9 @@ export function CartPage() {
       <ScrollProgress />
       <AppNav />
 
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto md:pt-20 pb-16 md:pb-0">
         {/* Header */}
-        <div className="sticky top-0 z-20 backdrop-blur-lg border-b" style={{
+        <div className="backdrop-blur-lg border-b" style={{
           backgroundColor: 'var(--color-background)',
           borderColor: 'var(--color-border)'
         }}>
@@ -81,15 +105,24 @@ export function CartPage() {
                     }}
                   >
                     <div className="flex gap-4">
-                      {/* Product Image Placeholder */}
-                      <div
-                        className="w-20 h-20 rounded-[var(--radius-md)] flex-shrink-0 flex items-center justify-center"
-                        style={{
-                          background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%)'
-                        }}
-                      >
-                        <ShoppingCart className="w-8 h-8" style={{ color: 'var(--color-primary-foreground)' }} />
-                      </div>
+                      {/* Product Image */}
+                      {item.image && item.image.trim() !== '' && item.image !== 'null' && item.image !== 'undefined' ? (
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-20 h-20 rounded-[var(--radius-md)] flex-shrink-0 object-cover border"
+                          style={{ borderColor: 'var(--color-border)' }}
+                        />
+                      ) : (
+                        <div
+                          className="w-20 h-20 rounded-[var(--radius-md)] flex-shrink-0 flex items-center justify-center"
+                          style={{
+                            background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%)'
+                          }}
+                        >
+                          <ShoppingCart className="w-8 h-8" style={{ color: 'var(--color-primary-foreground)' }} />
+                        </div>
+                      )}
 
                       <div className="flex-1 min-w-0">
                         <h3 className="font-medium mb-1 truncate" style={{ color: 'var(--color-card-foreground)' }}>
@@ -99,7 +132,7 @@ export function CartPage() {
                           {item.description}
                         </p>
                         <p className="text-lg font-bold" style={{ color: 'var(--color-foreground)' }}>
-                          {formatCurrency(item.price)}
+                          {(item.pointsCost || Math.round(item.price))} Points
                         </p>
                       </div>
 
@@ -156,7 +189,7 @@ export function CartPage() {
                   <div className="space-y-3 mb-6">
                     <div className="flex justify-between">
                       <span style={{ color: 'var(--color-muted-foreground)' }}>Subtotal</span>
-                      <span style={{ color: 'var(--color-foreground)' }}>{formatCurrency(total)}</span>
+                      <span style={{ color: 'var(--color-foreground)' }}>{totalPoints} Points</span>
                     </div>
                     <div className="flex justify-between">
                       <span style={{ color: 'var(--color-muted-foreground)' }}>Delivery</span>
@@ -168,7 +201,7 @@ export function CartPage() {
                         Total
                       </span>
                       <span className="text-2xl font-bold" style={{ color: 'var(--color-foreground)' }}>
-                        {formatCurrency(total)}
+                        {totalPoints} Points
                       </span>
                     </div>
                   </div>

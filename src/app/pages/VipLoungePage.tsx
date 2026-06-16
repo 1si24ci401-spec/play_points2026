@@ -61,7 +61,7 @@ export function VipLoungePage() {
   const [wonAmount, setWonAmount] = useState<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
 
-  const [activeCategory, setActiveCategory] = useState('ALL');
+  const [activeCategory, setActiveCategory] = useState('DEVICES');
 
   const [perms, setPerms] = useState<Record<string, boolean> | null>(() =>
     user ? getUserNavPermissions(user.id) : null
@@ -215,7 +215,6 @@ export function VipLoungePage() {
   };
 
   const categories = [
-    { id: 'ALL', name: 'ALL REWARDS' },
     { id: 'DEVICES', name: 'PREMIUM DEVICES' },
     { id: 'GAMING', name: 'GAMING GEAR' },
     { id: 'ACCESSORIES', name: 'ACCESSORIES' }
@@ -264,9 +263,7 @@ export function VipLoungePage() {
     }
   ];
 
-  const filteredRewards = activeCategory === 'ALL'
-    ? featuredRewards
-    : featuredRewards.filter(r => r.category === activeCategory);
+  const filteredRewards = featuredRewards.filter(r => r.category === activeCategory);
 
   return (
     <div className="size-full flex flex-col bg-transparent" style={{ color: '#fff' }}>

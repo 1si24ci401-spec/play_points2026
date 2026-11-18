@@ -15,17 +15,28 @@ import { useAuth } from '../context/AuthContext';
 import { PremiumAmbientGlow } from '../components/PremiumAmbientGlow';
 
 export function RootLayout() {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => {
+    try {
+      return !localStorage.getItem('hasSeenLoading') && !sessionStorage.getItem('hasSeenLoading');
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
-    const hasSeenLoading = sessionStorage.getItem('hasSeenLoading');
-    if (hasSeenLoading) {
-      setIsLoading(false);
-    }
+    try {
+      const hasSeen = localStorage.getItem('hasSeenLoading') || sessionStorage.getItem('hasSeenLoading');
+      if (hasSeen) {
+        setIsLoading(false);
+      }
+    } catch {}
   }, []);
 
   const handleLoadingComplete = () => {
-    sessionStorage.setItem('hasSeenLoading', 'true');
+    try {
+      localStorage.setItem('hasSeenLoading', 'true');
+      sessionStorage.setItem('hasSeenLoading', 'true');
+    } catch {}
     setIsLoading(false);
   };
 

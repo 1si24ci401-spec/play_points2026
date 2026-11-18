@@ -18,6 +18,9 @@ import { format } from 'date-fns';
 import { UsersTab } from '../components/UsersTab';
 import { StatsTab } from '../components/StatsTab';
 import { MenuPermissionsTab } from '../components/MenuPermissionsTab';
+import { BillingTab } from '../components/BillingTab';
+import { TallyInvoice } from '../components/TallyInvoice';
+import { EditBillModal } from '../components/EditBillModal';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
@@ -25,7 +28,7 @@ export function AdminDashboard() {
   const [showEventsModal, setShowEventsModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [notificationEvents, setNotificationEvents] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'products' | 'coupons' | 'orders' | 'offers' | 'users' | 'stats' | 'points' | 'permissions'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'coupons' | 'orders' | 'billing' | 'offers' | 'users' | 'stats' | 'points' | 'permissions'>('products');
   const [allUsers, setAllUsers] = useState<any[]>([]);
 
   useEffect(() => {
@@ -91,6 +94,12 @@ export function AdminDashboard() {
               Orders
             </TabButton>
             <TabButton
+              active={activeTab === 'billing'}
+              onClick={() => setActiveTab('billing')}
+            >
+              Billing & Invoices
+            </TabButton>
+            <TabButton
               active={activeTab === 'users'}
               onClick={() => setActiveTab('users')}
             >
@@ -134,6 +143,7 @@ export function AdminDashboard() {
             }} />}
             {activeTab === 'coupons' && <CouponsTab accessToken={accessToken!} />}
             {activeTab === 'orders' && <OrdersTab accessToken={accessToken!} />}
+            {activeTab === 'billing' && <BillingTab accessToken={accessToken!} />}
             {activeTab === 'users' && <UsersTab accessToken={accessToken!} />}
             {activeTab === 'points' && <PointsTab accessToken={accessToken!} />}
             {activeTab === 'stats' && <StatsTab accessToken={accessToken!} />}
@@ -928,7 +938,14 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
   const [editPaymentType, setEditPaymentType] = useState<'full' | 'partial'>('full');
   const [editPaymentStatus, setEditPaymentStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const [editPartialAmount, setEditPartialAmount] = useState<string>('0');
+  const [editPaymentRef, setEditPaymentRef] = useState<string>('');
+  const [editPaymentPeriod, setEditPaymentPeriod] = useState<string>('Within 7 Days');
+  const [editBillEnabled, setEditBillEnabled] = useState<boolean>(true);
   const [isSavingPayment, setIsSavingPayment] = useState(false);
+
+  // Billing modals
+  const [viewingBillOrder, setViewingBillOrder] = useState<any | null>(null);
+  const [editingBillOrder, setEditingBillOrder] = useState<any | null>(null);
 
   useEffect(() => {
     loadOrders();
@@ -938,12 +955,30 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
     setIsSavingPayment(true);
     try {
       const pAmt = editPaymentType === 'partial' ? Number(editPartialAmount) : 0;
+      const shortId = order.id.split(':')[1]?.slice(0, 8) || order.id;
+      const invNo = order.invoiceNo || `HT/26-27/${shortId.slice(0, 6).toUpperCase()}`;
+
       await api.updateOrder(accessToken, order.id, {
         paymentType: editPaymentType,
         paymentStatus: editPaymentStatus,
-        partialAmount: pAmt
+        partialAmount: pAmt,
+        paymentId: editPaymentRef || (editPaymentStatus === 'approved' ? `TXN-${shortId.toUpperCase()}` : 'Pending Verification'),
+        paymentPeriod: editPaymentPeriod || 'Immediate',
+        billEnabled: editBillEnabled,
+        billGeneratedAt: editBillEnabled ? new Date().toISOString() : order.billGeneratedAt,
       });
-      toast.success('Payment details updated successfully!');
+
+      if (editBillEnabled && order.userId) {
+        try {
+          await api.sendUserNotification(
+            accessToken,
+            order.userId,
+            `📄 Tax Invoice (${invNo}) for your Order #${shortId} has been updated & enabled! Payment Status: ${editPaymentStatus.toUpperCase()}. Check My Orders to download your Tally bill.`
+          );
+        } catch {}
+      }
+
+      toast.success('Payment & billing details updated successfully!');
       setEditingPaymentId(null);
       loadOrders();
     } catch (error) {
@@ -1023,11 +1058,22 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
       {orders.map((order, index) => (
         <AnimatedCard key={order.id} delay={index * 0.05}>
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 flex flex-col gap-6 hover:border-zinc-705 transition-colors">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-start flex-wrap gap-2">
               <div className="flex flex-col gap-1">
-                <span className="font-mono text-xs text-zinc-400 font-bold uppercase tracking-wider">
-                  Order ID: {order.id.split(':')[1]}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs text-zinc-400 font-bold uppercase tracking-wider">
+                    Order ID: {order.id.split(':')[1]}
+                  </span>
+                  {order.billEnabled ? (
+                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      ✓ Bill Enabled: {order.invoiceNo || `HT/26-27/${order.id.split(':')[1]?.slice(0, 6).toUpperCase()}`}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                      ⏳ Bill Not Enabled
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs text-zinc-500 font-mono">
                   {format(new Date(order.createdAt), 'MMM d, yyyy h:mm a')}
                 </span>
@@ -1094,13 +1140,19 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
                       {order.pointsDeducted ?? order.pointsTotal ?? 0} Points
                     </span>
                   </div>
+                  {order.paymentId && (
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-zinc-500">Payment ID:</span>
+                      <span className="font-mono text-zinc-300 text-[11px]">{order.paymentId}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
             {editingPaymentId === order.id && (
               <div className="mt-2 p-4 border border-zinc-800 rounded-xl flex flex-col gap-4 bg-zinc-950/80">
-                <h4 className="text-xs font-bold font-mono tracking-wider uppercase text-zinc-300">Edit Payment Details</h4>
+                <h4 className="text-xs font-bold font-mono tracking-wider uppercase text-zinc-300">Edit Payment & Billing Details</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Payment Type</label>
@@ -1129,7 +1181,7 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
 
                   {editPaymentType === 'partial' && (
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Paid Amount ($)</label>
+                      <label className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Paid Amount (Rs)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -1137,10 +1189,45 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
                         max={order.discountedTotal}
                         value={editPartialAmount}
                         onChange={(e) => setEditPartialAmount(e.target.value)}
-                        className="p-2 border rounded-xl bg-zinc-900 border-zinc-800 text-zinc-100 text-xs outline-none focus:border-zinc-700 transition-all"
+                        className="p-2 border rounded-xl bg-zinc-900 border-zinc-800 text-zinc-100 text-xs outline-none focus:border-zinc-700 transition-all font-mono"
                       />
                     </div>
                   )}
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Payment ID / Ref</label>
+                    <input
+                      type="text"
+                      value={editPaymentRef}
+                      onChange={(e) => setEditPaymentRef(e.target.value)}
+                      placeholder="e.g. UPI/82910398"
+                      className="p-2 border rounded-xl bg-zinc-900 border-zinc-800 text-zinc-100 text-xs outline-none focus:border-zinc-700 transition-all font-mono"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">When to be Paid Period</label>
+                    <input
+                      type="text"
+                      value={editPaymentPeriod}
+                      onChange={(e) => setEditPaymentPeriod(e.target.value)}
+                      placeholder="e.g. Within 7 Days"
+                      className="p-2 border rounded-xl bg-zinc-900 border-zinc-800 text-zinc-100 text-xs outline-none focus:border-zinc-700 transition-all"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 justify-center">
+                    <label className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">Enable Bill for User</label>
+                    <label className="inline-flex items-center gap-2 cursor-pointer mt-1">
+                      <input
+                        type="checkbox"
+                        checked={editBillEnabled}
+                        onChange={(e) => setEditBillEnabled(e.target.checked)}
+                        className="w-4 h-4 rounded text-amber-500 bg-zinc-900 border-zinc-800"
+                      />
+                      <span className="text-xs text-zinc-300">Release Tally Bill to user</span>
+                    </label>
+                  </div>
                 </div>
 
                 <div className="flex gap-2 justify-end mt-2">
@@ -1192,9 +1279,26 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
                   setEditPaymentType(order.paymentType || 'full');
                   setEditPaymentStatus(order.paymentStatus || 'pending');
                   setEditPartialAmount(String(order.partialAmount || 0));
+                  setEditPaymentRef(order.paymentId || '');
+                  setEditPaymentPeriod(order.paymentPeriod || 'Within 7 Days');
+                  setEditBillEnabled(order.billEnabled !== undefined ? order.billEnabled : true);
                 }}
               >
                 Update Payment
+              </Button>
+              <Button
+                variant="primary"
+                size="small"
+                onClick={() => setEditingBillOrder(order)}
+              >
+                Manage Bill
+              </Button>
+              <Button
+                variant="neutral"
+                size="small"
+                onClick={() => setViewingBillOrder(order)}
+              >
+                View Tally Bill
               </Button>
               <Button
                 variant="neutral"
@@ -1208,6 +1312,34 @@ function OrdersTab({ accessToken }: { accessToken: string }) {
           </div>
         </AnimatedCard>
       ))}
+
+      {/* Bill Editor Modal */}
+      {editingBillOrder && (
+        <EditBillModal
+          isOpen={!!editingBillOrder}
+          onClose={() => setEditingBillOrder(null)}
+          order={editingBillOrder}
+          accessToken={accessToken}
+          onSuccess={() => loadOrders()}
+        />
+      )}
+
+      {/* Tally Bill Viewer Modal */}
+      {viewingBillOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-md"
+            onClick={() => setViewingBillOrder(null)}
+          />
+          <div className="relative w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl p-6 overflow-y-auto max-h-[92vh] z-10 flex flex-col items-center">
+            <TallyInvoice
+              order={viewingBillOrder}
+              onClose={() => setViewingBillOrder(null)}
+              showActions={true}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

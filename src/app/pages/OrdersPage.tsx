@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Badge, Button } from '@figma/astraui';
-import { X, Edit3, Package, Clock, CheckCircle, XCircle, Plus, Minus, Trash2 } from 'lucide-react';
+import {
+  X, Edit3, Package, Clock, CheckCircle, XCircle, Plus, Minus, Trash2,
+  FileText, Download, Printer, ShieldCheck, AlertCircle
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { AppNav, getUserNavPermissions, getFirstPermittedPage } from '../components/AppNav';
@@ -11,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../../utils/api';
 import { formatCurrency } from '../../utils/currency';
 import { format } from 'date-fns';
+import { TallyInvoice, OrderBillingData } from '../components/TallyInvoice';
 
 interface Order {
   id: string;
@@ -28,6 +32,19 @@ interface Order {
   partialAmount?: number;
   remainingAmount?: number;
   createdAt: string;
+
+  // Billing & Tally fields
+  invoiceNo?: string;
+  invoiceDate?: string;
+  paymentId?: string;
+  paymentPeriod?: string;
+  balanceDueDate?: string;
+  billEnabled?: boolean;
+  billGeneratedAt?: string;
+  hsnCode?: string;
+  billNotes?: string;
+  userEmail?: string;
+  userFullName?: string;
 }
 
 export function OrdersPage() {
@@ -41,6 +58,7 @@ export function OrdersPage() {
   const [editedItems, setEditedItems] = useState<any[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [viewingBillOrder, setViewingBillOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -432,6 +450,87 @@ export function OrdersPage() {
                       </div>
                     </div>
 
+                    {/* Official Tax Invoice / Tally Billing Section */}
+                    <div className="p-4 rounded-[var(--radius-md)] border mb-4" style={{
+                      backgroundColor: order.billEnabled ? 'rgba(245, 158, 11, 0.05)' : 'var(--color-muted)',
+                      borderColor: order.billEnabled ? 'rgba(245, 158, 11, 0.3)' : 'var(--color-border)',
+                    }}>
+                      {order.billEnabled ? (
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 mt-0.5">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-sm" style={{ color: 'var(--color-foreground)' }}>
+                                  Tax Invoice (Tally ERP Format)
+                                </span>
+                                <span className="text-xs px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                  {order.invoiceNo || `HT/26-27/${order.id.split(':')[1]?.slice(0, 6).toUpperCase()}`}
+                                </span>
+                              </div>
+                              <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+                                Payment Ref: <span className="font-mono font-semibold" style={{ color: 'var(--color-foreground)' }}>{order.paymentId || 'TXN-VERIFIED'}</span> • Status: <span className="uppercase font-semibold text-emerald-500">{order.paymentStatus}</span>
+                                {(order.remainingAmount || (order.paymentType === 'partial' ? (order.discountedTotal - (order.partialAmount || 0)) : 0)) > 0 && (
+                                  <span className="text-amber-500 font-semibold ml-2">
+                                    • Balance Due: {formatCurrency(order.remainingAmount || (order.discountedTotal - (order.partialAmount || 0)))} ({order.paymentPeriod || 'Within 7 Days'})
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              variant="primary"
+                              size="small"
+                              iconStart={<FileText size={14} />}
+                              onClick={() => {
+                                setViewingBillOrder({
+                                  ...order,
+                                  userEmail: user?.email,
+                                  userFullName: user?.fullName || user?.email?.split('@')[0],
+                                });
+                              }}
+                            >
+                              View Tally Bill
+                            </Button>
+                            <Button
+                              variant="neutral"
+                              size="small"
+                              iconStart={<Printer size={14} />}
+                              onClick={() => {
+                                setViewingBillOrder({
+                                  ...order,
+                                  userEmail: user?.email,
+                                  userFullName: user?.fullName || user?.email?.split('@')[0],
+                                });
+                              }}
+                            >
+                              Download PDF
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <Clock className="w-4 h-4 text-zinc-400 shrink-0" />
+                            <div>
+                              <span className="text-xs font-semibold" style={{ color: 'var(--color-foreground)' }}>
+                                Tax Invoice / Bill: In Review by Admin
+                              </span>
+                              <p className="text-[11px]" style={{ color: 'var(--color-muted-foreground)' }}>
+                                Invoice will be enabled once payment details are verified and updated by admin.
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] uppercase font-mono px-2 py-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
+                            Bill Pending Admin Review
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Action Buttons */}
                     <div className="flex items-center gap-3 flex-wrap">
                       {canEditOrder(order) && (
@@ -641,6 +740,33 @@ export function OrdersPage() {
                   {isSavingEdit ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Tally Tax Invoice Viewer & Download Modal */}
+      <AnimatePresence>
+        {viewingBillOrder && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 backdrop-blur-md"
+              onClick={() => setViewingBillOrder(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl p-6 overflow-y-auto max-h-[92vh] z-10 flex flex-col items-center"
+            >
+              <TallyInvoice
+                order={viewingBillOrder as any}
+                onClose={() => setViewingBillOrder(null)}
+                showActions={true}
+              />
             </motion.div>
           </div>
         )}

@@ -5,15 +5,16 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const duration = 1800;
-    const steps = 40;
+    // Ultra-fast responsive loading transition (350ms total)
+    const duration = 350;
+    const steps = 20;
     const interval = duration / steps;
 
     const timer = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(timer);
-          setTimeout(onComplete, 300);
+          setTimeout(onComplete, 80);
           return 100;
         }
         return prev + (100 / steps);
@@ -25,11 +26,12 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer select-none"
+      onClick={onComplete}
       style={{ backgroundColor: 'var(--color-background)' }}
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.2 }}
     >
       <div className="flex flex-col items-center gap-8 max-w-md px-6">
         <motion.div

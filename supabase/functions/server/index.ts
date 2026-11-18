@@ -1229,7 +1229,7 @@ app.post("/make-server-549f93eb/users/:userId/notify", async (c) => {
     }
 
     const userId = c.req.param('userId');
-    const { message } = await c.req.json();
+    const { message, title } = await c.req.json();
 
     if (!message || !message.trim()) {
       return c.json({ error: 'Message is required' }, 400);
@@ -1239,6 +1239,7 @@ app.post("/make-server-549f93eb/users/:userId/notify", async (c) => {
     const notifications = await kv.get(key) || [];
     notifications.push({
       id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      title: title || 'Notice from Admin',
       message: message.trim(),
       createdAt: new Date().toISOString(),
       read: false

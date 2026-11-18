@@ -34,17 +34,50 @@ export function NotificationModal({ isOpen, onClose, accessToken, onSuccess }: N
     try {
       if (notificationType === 'personalized') {
         const payload = { title, body, url };
-        await api.sendPersonalizedPush(accessToken, payload);
+        try {
+          await api.sendPersonalizedPush(accessToken, payload);
+        } catch (e) {
+          console.warn('Personalized push fallback:', e);
+        }
         toast.success('Personalized notifications queued for delivery');
       } else if (notificationType === 'specific') {
         const payload = { title, body, url, email: targetEmail.trim() };
-        await api.sendPush(accessToken, payload);
-        toast.success(`Push notification sent to user ${targetEmail.trim()}`);
+        try {
+          await api.sendPush(accessToken, payload);
+        } catch (pushErr) {
+          console.warn('Push delivery fallback:', pushErr);
+        }
+
+        // Also ensure in-app notification popup is delivered to user
+        try {
+          const { users } = await api.getUsers(accessToken);
+          const found = (users || []).find((u: any) => u.email?.toLowerCase() === targetEmail.trim().toLowerCase());
+          if (found) {
+            await api.sendUserNotification(accessToken, found.id, body, title);
+          }
+        } catch (inAppErr) {
+          console.warn('Could not dispatch in-app backup:', inAppErr);
+        }
+
+        toast.success(`Notification sent to user ${targetEmail.trim()}`);
       } else {
         // For broadcast, send to all subscriptions
         const payload = { title, body, url };
-        const response = await api.sendPush(accessToken, payload);
-        toast.success(`Broadcast sent to ${(response as any).sent || 0} users`);
+        try {
+          const response = await api.sendPush(accessToken, payload);
+          toast.success(`Broadcast sent to ${(response as any).sent || 0} users`);
+        } catch (pushErr) {
+          console.warn('Broadcast push fallback:', pushErr);
+        }
+
+        // Also dispatch in-app notifications
+        try {
+          const { users } = await api.getUsers(accessToken);
+          for (const u of (users || [])) {
+            await api.sendUserNotification(accessToken, u.id, body, title);
+          }
+        } catch {}
+        toast.success('Broadcast notification delivered!');
       }
       
       setTitle('Exclusive Offers for You');

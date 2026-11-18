@@ -26,9 +26,29 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const cached = localStorage.getItem('pp_user_profile') || sessionStorage.getItem('pp_user_profile');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [accessToken, setAccessToken] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('pp_access_token') || sessionStorage.getItem('pp_access_token');
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = localStorage.getItem('pp_user_profile') || sessionStorage.getItem('pp_user_profile');
+      return !cached;
+    } catch {
+      return true;
+    }
+  });
 
   const refreshUser = async () => {
     try {
@@ -38,41 +58,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error || !session) {
         setUser(null);
         setAccessToken(null);
+        try {
+          localStorage.removeItem('pp_user_profile');
+          localStorage.removeItem('pp_access_token');
+          sessionStorage.removeItem('pp_user_profile');
+          sessionStorage.removeItem('pp_access_token');
+        } catch {}
         return;
       }
 
       setAccessToken(session.access_token);
+      localStorage.setItem('pp_access_token', session.access_token);
 
-      // Try to load cached profile immediately to reduce perceived latency
-      const cached = sessionStorage.getItem('pp_user_profile');
-      if (cached) {
+      // Fast optimistic load from cache if state was empty
+      const cached = localStorage.getItem('pp_user_profile') || sessionStorage.getItem('pp_user_profile');
+      if (cached && !user) {
         try {
-          const cachedUser = JSON.parse(cached);
-          setUser(cachedUser);
-          // Apply premium theme from cache immediately  
-          if (typeof document !== 'undefined') {
-            document.documentElement.classList.remove('theme-premium-gold', 'theme-premium-platinum', 'theme-premium-emerald');
-            if (cachedUser?.tier === 'premium') {
-              const saved = sessionStorage.getItem('pp_premium_theme') || 'theme-premium-gold';
-              document.documentElement.classList.add(saved);
-            }
-          }
-        } catch (_) { /* ignore cache parse error */ }
+          setUser(JSON.parse(cached));
+        } catch (_) {}
       }
 
-      // Get user profile from backend (always fetch fresh data)
+      // Revalidate profile in background
       const profile = await api.getProfile(session.access_token);
       const fetchedUser = profile.user;
       setUser(fetchedUser);
 
-      // Cache for fast subsequent loads
+      // Persist across sessions for instant 0ms startup
+      localStorage.setItem('pp_user_profile', JSON.stringify(fetchedUser));
       sessionStorage.setItem('pp_user_profile', JSON.stringify(fetchedUser));
 
       // Apply premium theme
       if (typeof document !== 'undefined') {
         document.documentElement.classList.remove('theme-premium-gold', 'theme-premium-platinum', 'theme-premium-emerald');
         if (fetchedUser?.tier === 'premium') {
-          // Keep the same theme within session for consistency; randomize only on new session
           let premiumTheme = sessionStorage.getItem('pp_premium_theme');
           if (!premiumTheme) {
             const themes = ['theme-premium-gold', 'theme-premium-platinum', 'theme-premium-emerald'];
@@ -92,25 +110,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Error refreshing user:', error);
-      setUser(null);
-      setAccessToken(null);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    refreshUser().finally(() => setLoading(false));
+    refreshUser();
 
     // Listen for auth changes
     const supabase = createClient();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         setAccessToken(session.access_token);
-        refreshUser();
+        localStorage.setItem('pp_access_token', session.access_token);
+        if (event === 'SIGNED_IN') {
+          refreshUser();
+        }
       } else {
         setUser(null);
         setAccessToken(null);
-        sessionStorage.removeItem('pp_user_profile');
-        sessionStorage.removeItem('pp_premium_theme');
+        try {
+          localStorage.removeItem('pp_user_profile');
+          localStorage.removeItem('pp_access_token');
+          sessionStorage.removeItem('pp_user_profile');
+          sessionStorage.removeItem('pp_access_token');
+        } catch {}
       }
     });
 
@@ -135,12 +160,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('No session returned from login');
     }
 
-    setAccessToken(data.session.access_token);
-    await refreshUser();
+    const token = data.session.access_token;
+    setAccessToken(token);
+    localStorage.setItem('pp_access_token', token);
+    sessionStorage.setItem('pp_access_token', token);
 
-    // Read the user state that refreshUser just set (no second API call)
-    const profile = await api.getProfile(data.session.access_token);
-    return profile.user as User;
+    // Single fast profile fetch
+    const profile = await api.getProfile(token);
+    const fetchedUser = profile.user as User;
+
+    setUser(fetchedUser);
+    setLoading(false);
+    localStorage.setItem('pp_user_profile', JSON.stringify(fetchedUser));
+    sessionStorage.setItem('pp_user_profile', JSON.stringify(fetchedUser));
+
+    return fetchedUser;
   };
 
   const signUp = async (email: string, password: string, fullName: string, username: string) => {
@@ -176,6 +210,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null);
     setAccessToken(null);
+    try {
+      localStorage.removeItem('pp_user_profile');
+      localStorage.removeItem('pp_access_token');
+      sessionStorage.removeItem('pp_user_profile');
+      sessionStorage.removeItem('pp_access_token');
+    } catch {}
   };
 
   return (

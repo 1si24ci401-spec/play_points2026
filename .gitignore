@@ -10,3 +10,12 @@ dist
 # OS artifacts
 .DS_Store
 Thumbs.db
+
+# Agent & IDE files
+.agents/
+.agent/
+.kiro/
+.marketingskills-tmp/
+.vscode/
+skills-lock.json
+supabase/.temp/

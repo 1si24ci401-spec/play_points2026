@@ -1136,16 +1136,12 @@ app.post("/make-server-549f93eb/orders/:orderId/cancel", async (c) => {
       return c.json({ error: 'You can only cancel your own orders' }, 403);
     }
 
-    // Normal users can only cancel within 1 minute of order creation
-    const userProfile = await kv.get(`user:${user.id}`);
-    const isAdmin = userProfile?.role === 'admin';
-    if (!isAdmin) {
-      const createdAt = new Date(existing.createdAt).getTime();
-      const now = Date.now();
-      const ONE_MIN = 1 * 60 * 1000;
-      if (now - createdAt > ONE_MIN) {
-        return c.json({ error: 'Cancellation window expired (1 minute)' }, 400);
-      }
+    // Strict 5-minute cancellation window from order placement
+    const createdAt = new Date(existing.createdAt).getTime();
+    const now = Date.now();
+    const FIVE_MIN = 5 * 60 * 1000;
+    if (isNaN(createdAt) || (now - createdAt > FIVE_MIN)) {
+      return c.json({ error: 'Cancellation window expired (5 minutes limit reached). Order can no longer be cancelled.' }, 400);
     }
 
     // Check if order can be cancelled

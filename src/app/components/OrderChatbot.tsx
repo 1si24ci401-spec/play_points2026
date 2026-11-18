@@ -183,12 +183,62 @@ export function OrderChatbot() {
         },
       ]);
     } catch (error: any) {
-      console.error('Chat error:', error);
+      console.warn('Chat API error, using intelligent store assistant fallback:', error);
+
+      // Intelligent Client-Side Store Assistant Fallback
+      const lower = text.toLowerCase();
+      let fallbackContent = '';
+
+      try {
+        const { orders = [] } = await api.getOrders(accessToken).catch(() => ({ orders: [] }));
+
+        if (lower.includes('status') || lower.includes('recent') || lower.includes('order') || lower.includes('track')) {
+          if (orders.length > 0) {
+            const sorted = [...orders].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            const last = sorted[0];
+            const shortId = last.id.includes(':') ? last.id.split(':')[1].slice(0, 8) : last.id.slice(0, 8);
+            const itemsSummary = last.items?.map((it: any) => `${it.name} (x${it.quantity || 1})`).join(', ') || 'Items';
+            const age = Date.now() - new Date(last.createdAt).getTime();
+            const within5m = age >= 0 && age <= (5 * 60 * 1000);
+            const windowMsg = within5m
+              ? `⏱️ 5-minute edit & cancel window is **Active** (${Math.max(1, Math.ceil((5 * 60 * 1000 - age) / 60000))}m left).`
+              : `🔒 Edit & cancel window is **Closed** (5 min expired).`;
+            const billMsg = last.billEnabled 
+              ? '📄 Official Tax Invoice is generated and ready to download!' 
+              : '📄 Tax invoice is in review / pending admin verification.';
+
+            fallbackContent = `Your most recent order **#${shortId}** (${itemsSummary}) is **${(last.status || 'pending').toUpperCase()}**.\n\n- **Total:** ₹${(last.discountedTotal || last.total || 0).toLocaleString('en-IN')}\n- **Payment Status:** ${(last.paymentStatus || 'pending').toUpperCase()}\n- ${windowMsg}\n- ${billMsg}`;
+            setTimeout(() => navigate('/orders'), 600);
+          } else {
+            fallbackContent = `You haven't placed any orders yet. Check out our store products to place an order!`;
+            setTimeout(() => navigate('/products'), 600);
+          }
+        } else if (lower.includes('cancel')) {
+          fallbackContent = `You can cancel an order strictly within **5 minutes** of placing it from **My Orders**. Once 5 minutes pass, the cancellation window closes.`;
+          setTimeout(() => navigate('/orders'), 600);
+        } else if (lower.includes('edit') || lower.includes('change') || lower.includes('modify')) {
+          fallbackContent = `You can edit order items strictly within **5 minutes** of order placement from **My Orders**. After 5 minutes, the edit window automatically closes.`;
+          setTimeout(() => navigate('/orders'), 600);
+        } else if (lower.includes('point') || lower.includes('balance') || lower.includes('tier')) {
+          fallbackContent = `You currently have **${user.points || 0} Points** in your balance (Tier: **${user.tier || 'normal'}**). You can redeem points for discounts during checkout!`;
+        } else if (lower.includes('bill') || lower.includes('invoice') || lower.includes('tally') || lower.includes('tax')) {
+          fallbackContent = `Official Hydra Traders Tax Invoices (Tally format) are generated with official crest and authorized seal once payment details are verified. You can view and download them in **My Orders**.`;
+          setTimeout(() => navigate('/orders'), 600);
+        } else if (lower.includes('coupon') || lower.includes('discount') || lower.includes('promo')) {
+          fallbackContent = `When you use discount codes at checkout, they will be applied and shown as **Vendor Promo** on your official tax invoice with the price deduction availed.`;
+        } else {
+          const username = user.user_metadata?.full_name || user.email?.split('@')[0] || 'there';
+          fallbackContent = `Hi **${username}**! I'm PlayBot, your Hydra store assistant. I can help with your order status, 5-minute edit & cancel window, points balance, and tax invoices.`;
+        }
+      } catch {
+        fallbackContent = `I can help you check your order status, 5-minute edit & cancel window, and tax invoices. Head over to **My Orders** to manage your recent purchases!`;
+      }
+
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: `❌ **Error:** ${error.message || 'Failed to connect to the assistant. Please verify your internet and API configuration.'}`,
+          content: fallbackContent,
           timestamp: new Date(),
         },
       ]);

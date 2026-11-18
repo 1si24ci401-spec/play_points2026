@@ -116,7 +116,27 @@ export function OrdersPage() {
     }
   };
 
+  const FIVE_MIN_MS = 5 * 60 * 1000;
+
+  const getOrderAgeMs = (order: Order) => {
+    if (!order?.createdAt) return Infinity;
+    const orderTime = new Date(order.createdAt).getTime();
+    if (isNaN(orderTime)) return Infinity;
+    return now - orderTime;
+  };
+
+  const isWithinFiveMin = (order: Order) => {
+    const age = getOrderAgeMs(order);
+    return age >= 0 && age <= FIVE_MIN_MS;
+  };
+
   const handleCancelOrder = async (orderId: string) => {
+    const target = orders.find(o => o.id === orderId);
+    if (target && !isWithinFiveMin(target)) {
+      toast('Cancellation window has closed (5 minutes limit expired). Order can no longer be cancelled.');
+      return;
+    }
+
     if (!confirm('Are you sure you want to cancel this order?')) return;
 
     setCancellingOrder(orderId);
@@ -157,14 +177,11 @@ export function OrdersPage() {
   const handleSaveEdit = async () => {
     if (!editingOrder || !accessToken) return;
 
-    // Strict 5-minute edit window check for non-admin users
-    if (user?.role !== 'admin') {
-      const elapsed = Date.now() - new Date(editingOrder.createdAt).getTime();
-      if (elapsed > 5 * 60 * 1000) {
-        toast('Edit window has closed (5 minutes limit expired). Order can no longer be modified.');
-        setEditingOrder(null);
-        return;
-      }
+    // Strict 5-minute edit window check: closes after 5 minutes
+    if (!isWithinFiveMin(editingOrder)) {
+      toast('Edit window has closed (5 minutes limit expired). Order can no longer be modified.');
+      setEditingOrder(null);
+      return;
     }
 
     setIsSavingEdit(true);
@@ -190,21 +207,20 @@ export function OrdersPage() {
     }
   };
 
+  // Strictly 5 minutes from order placement for cancel window
   const canCancelOrder = (order: Order) => {
-    if (user?.role === 'admin') {
-      return order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'delivered';
+    if (['completed', 'cancelled', 'delivered'].includes(order.status)) {
+      return false;
     }
-    const withinOneMin = (now - new Date(order.createdAt).getTime()) <= (1 * 60 * 1000);
-    return order.status === 'pending' && withinOneMin;
+    return isWithinFiveMin(order);
   };
 
-  // Strictly 5 minutes from order placement, irrespective of payment status
+  // Strictly 5 minutes from order placement for edit window
   const canEditOrder = (order: Order) => {
-    if (user?.role === 'admin') {
-      return order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'delivered';
+    if (['completed', 'cancelled', 'delivered'].includes(order.status)) {
+      return false;
     }
-    const withinFiveMin = (now - new Date(order.createdAt).getTime()) <= (5 * 60 * 1000);
-    return order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'delivered' && withinFiveMin;
+    return isWithinFiveMin(order);
   };
 
   const getStatusBadgeVariant = (status: string) => {
@@ -570,21 +586,25 @@ export function OrdersPage() {
                           {cancellingOrder === order.id ? 'Cancelling...' : 'Cancel Order'}
                         </Button>
                       )}
-                      {user?.role !== 'admin' && canEditOrder(order) && (() => {
-                        const remainingSecs = Math.max(0, Math.ceil(((5 * 60 * 1000) - (now - new Date(order.createdAt).getTime())) / 1000));
+                      {/* Active countdown while within 5 minutes */}
+                      {isWithinFiveMin(order) && !['completed', 'cancelled', 'delivered'].includes(order.status) && (() => {
+                        const age = getOrderAgeMs(order);
+                        const remainingSecs = Math.max(0, Math.ceil((FIVE_MIN_MS - age) / 1000));
                         const minsLeft = Math.floor(remainingSecs / 60);
                         const secsLeft = remainingSecs % 60;
                         return (
                           <div className="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-[var(--radius-md)] border border-amber-500/25 bg-amber-500/10 text-amber-400 font-mono font-medium">
                             <Clock className="w-3.5 h-3.5 animate-pulse" />
-                            <span>Edit window: {minsLeft}m {secsLeft < 10 ? `0${secsLeft}` : secsLeft}s left</span>
+                            <span>Edit & cancel window: {minsLeft}m {secsLeft < 10 ? `0${secsLeft}` : secsLeft}s left</span>
                           </div>
                         );
                       })()}
-                      {user?.role !== 'admin' && !canEditOrder(order) && order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'delivered' && (
+
+                      {/* Closed window lock indicator after 5 minutes */}
+                      {!isWithinFiveMin(order) && !['completed', 'cancelled', 'delivered'].includes(order.status) && (
                         <div className="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-[var(--radius-md)] border border-zinc-800 bg-zinc-900/80 text-zinc-400 font-mono">
                           <Lock className="w-3.5 h-3.5 text-zinc-500" />
-                          <span>Edit window closed (5m expired)</span>
+                          <span>Edit & cancel window closed (5 min expired)</span>
                         </div>
                       )}
                       {order.status === 'completed' && (
@@ -642,10 +662,19 @@ export function OrdersPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {user?.role !== 'admin' && (() => {
-                    const remainingSecs = Math.max(0, Math.ceil(((5 * 60 * 1000) - (now - new Date(editingOrder.createdAt).getTime())) / 1000));
+                  {(() => {
+                    const age = getOrderAgeMs(editingOrder);
+                    const remainingSecs = Math.max(0, Math.ceil((FIVE_MIN_MS - age) / 1000));
                     const minsLeft = Math.floor(remainingSecs / 60);
                     const secsLeft = remainingSecs % 60;
+                    if (remainingSecs <= 0) {
+                      return (
+                        <div className="text-xs px-2.5 py-1 rounded bg-red-500/10 border border-red-500/30 text-red-400 font-mono flex items-center gap-1.5">
+                          <Lock size={12} />
+                          <span>5m Window Expired</span>
+                        </div>
+                      );
+                    }
                     return (
                       <div className="text-xs px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono flex items-center gap-1.5">
                         <Clock size={12} className="animate-pulse" />

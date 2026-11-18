@@ -482,6 +482,13 @@ export function TallyInvoice({ order, onClose, showActions = true }: TallyInvoic
             </span>
           </div>
         </div>
+
+        {/* Computer Generated Bill Authorization Line */}
+        <div className="w-full border-t border-zinc-300 mt-8 pt-3 text-center">
+          <p className="text-[11px] sm:text-xs text-zinc-600 font-medium tracking-wide">
+            This is a computer generated bill and its authorized by the Hydra Traders
+          </p>
+        </div>
       </div>
     </div>
   );

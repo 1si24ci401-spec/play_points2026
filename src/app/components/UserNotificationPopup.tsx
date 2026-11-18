@@ -19,6 +19,9 @@ export function UserNotificationPopup() {
   const { user, accessToken } = useAuth();
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [activeNotification, setActiveNotification] = useState<UserNotification | null>(null);
+  const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(() => {
+    return typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default';
+  });
 
   const checkNotifications = useCallback(async () => {
     if (!accessToken || !user) return;
@@ -30,12 +33,39 @@ export function UserNotificationPopup() {
       // If we don't have an active notification showing, pick the latest unread one
       if (list.length > 0 && !activeNotification) {
         list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setActiveNotification(list[0]);
+        const target = list[0];
+        setActiveNotification(target);
+
+        // Native mobile-app-like OS/Browser notification popup
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          try {
+            const isOrderOrBill =
+              target.message.toLowerCase().includes('order') ||
+              target.message.toLowerCase().includes('invoice') ||
+              target.message.toLowerCase().includes('bill');
+
+            const native = new Notification(target.title || (isOrderOrBill ? 'Tax Invoice & Bill Notice' : 'Hydra Traders Notice'), {
+              body: target.message,
+              icon: '/images/hydra-bill-logo.png',
+              badge: '/images/hydra-bill-logo.png',
+              tag: target.id,
+            });
+
+            native.onclick = () => {
+              window.focus();
+              if (isOrderOrBill) {
+                navigate('/orders');
+              }
+            };
+          } catch (notifErr) {
+            console.warn('Native notification trigger note:', notifErr);
+          }
+        }
       }
     } catch (error) {
       // Non-fatal, suppress console noise
     }
-  }, [accessToken, user, activeNotification]);
+  }, [accessToken, user, activeNotification, navigate]);
 
   useEffect(() => {
     if (!accessToken || !user) {
@@ -185,6 +215,36 @@ export function UserNotificationPopup() {
             >
               {activeNotification.message}
             </div>
+
+            {/* In-app Mobile Push Permission helper if not yet allowed */}
+            {browserPermission === 'default' && (
+              <div className="w-full flex items-center justify-between p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+                <span className="flex items-center gap-1.5 text-[11px] font-medium">
+                  <Bell className="w-3.5 h-3.5 shrink-0 animate-pulse text-amber-400" />
+                  Want native mobile popups for order & bill updates?
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (typeof window !== 'undefined' && 'Notification' in window) {
+                      const res = await Notification.requestPermission();
+                      setBrowserPermission(res);
+                      if (res === 'granted') {
+                        try {
+                          new Notification('Push Notifications Enabled', {
+                            body: 'You will receive instant popups for orders, bills, and payments!',
+                            icon: '/images/hydra-bill-logo.png',
+                          });
+                        } catch (e) {}
+                      }
+                    }
+                  }}
+                  className="px-2.5 py-1 rounded bg-amber-500 text-zinc-950 font-bold text-[10px] uppercase tracking-wide hover:brightness-110 active:scale-95 transition-all shrink-0 shadow"
+                >
+                  Allow
+                </button>
+              </div>
+            )}
 
             <div className="w-full pt-1 flex gap-2 flex-col sm:flex-row">
               {isOrderOrBill && (

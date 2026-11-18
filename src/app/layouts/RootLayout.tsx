@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { OffersNotification } from '../components/OffersNotification';
 import { UserNotificationPopup } from '../components/UserNotificationPopup';
+import { NotificationPermissionPrompt } from '../components/NotificationPermissionPrompt';
 import { isSupabaseConfigured } from '../../utils/supabase/client';
 import { SetupWarningScreen } from '../components/SetupWarningScreen';
 import { OrderChatbot } from '../components/OrderChatbot';
@@ -84,6 +85,7 @@ export function RootLayout() {
               {!isLoading && <Outlet />}
               {!isLoading && <OffersNotification />}
               {!isLoading && <UserNotificationPopup />}
+              {!isLoading && <NotificationPermissionPrompt />}
               {!isLoading && <OrderChatbot />}
               {!isLoading && <PremiumThemeWrapper />}
             </div>

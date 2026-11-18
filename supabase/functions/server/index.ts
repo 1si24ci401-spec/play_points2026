@@ -1075,18 +1075,18 @@ app.put("/make-server-549f93eb/orders/:orderId", async (c) => {
       return c.json({ error: 'Unauthorized' }, 403);
     }
 
-      // Owners can only edit within 1 minute of order creation and while it's still pending
+      // Owners can only edit within 5 minutes of order placement irrespective of payment status
       if (!isAdmin) {
         const createdAt = new Date(existing.createdAt).getTime();
         const now = Date.now();
-        const ONE_MIN = 1 * 60 * 1000;
+        const FIVE_MIN = 5 * 60 * 1000;
 
-        if (now - createdAt > ONE_MIN) {
-          return c.json({ error: 'Edit window expired (1 minute)' }, 400);
+        if (now - createdAt > FIVE_MIN) {
+          return c.json({ error: 'Edit window expired (5 minutes limit reached). Older orders can no longer be edited.' }, 400);
         }
 
-        if (existing.status !== 'pending') {
-          return c.json({ error: 'Cannot update order after it has been processed' }, 400);
+        if (['completed', 'cancelled', 'delivered'].includes(existing.status)) {
+          return c.json({ error: 'Cannot update order after it has been finalized' }, 400);
         }
       }
 

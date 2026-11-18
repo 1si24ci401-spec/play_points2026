@@ -64,7 +64,10 @@ export function TallyInvoice({ order, onClose, showActions = true }: TallyInvoic
   const invoiceDate = order.invoiceDate ? new Date(order.invoiceDate) : new Date(order.createdAt || Date.now());
   const formattedDate = format(invoiceDate, 'dd-MM-yyyy');
 
+  const originalTotal = Number(order.total || 0);
   const grandTotal = Number(order.discountedTotal || order.total || 0);
+  const discountAmount = Math.max(0, originalTotal - grandTotal);
+
   const paidAmount = order.paymentType === 'partial'
     ? Number(order.partialAmount || 0)
     : (order.paymentStatus === 'approved' ? grandTotal : 0);
@@ -77,9 +80,14 @@ export function TallyInvoice({ order, onClose, showActions = true }: TallyInvoic
   const paymentId = order.paymentId || (order.paymentStatus === 'approved' ? `TXN-${shortId.toUpperCase()}` : 'Pending Verification');
   const paymentPeriod = order.paymentPeriod || (balanceDue > 0 ? (order.balanceDueDate ? `Due by ${format(new Date(order.balanceDueDate), 'dd-MM-yyyy')}` : 'Within 7 Business Days') : 'Settled in Full');
 
-  // Tax computation (inclusive 18% GST: 9% CGST + 9% SGST)
-  const subTotal = Math.round((grandTotal / 1.18) * 100) / 100;
-  const totalTax = Math.round((grandTotal - subTotal) * 100) / 100;
+  // Tax computation (inclusive 18% GST: 9% CGST + 9% SGST on final bill)
+  const baseTotalForTax = grandTotal;
+  const netTaxableSubTotal = Math.round((baseTotalForTax / 1.18) * 100) / 100;
+  const grossSubTotal = discountAmount > 0 
+    ? Math.round((originalTotal / 1.18) * 100) / 100 
+    : netTaxableSubTotal;
+
+  const totalTax = Math.round((baseTotalForTax - netTaxableSubTotal) * 100) / 100;
   const cgst = Math.round((totalTax / 2) * 100) / 100;
   const sgst = Math.round((totalTax - cgst) * 100) / 100;
 
@@ -386,9 +394,22 @@ export function TallyInvoice({ order, onClose, showActions = true }: TallyInvoic
                   Sub-Total:
                 </td>
                 <td className="border border-black px-3 py-1.5 text-right font-bold text-black">
-                  ₹{subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ₹{grossSubTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
+
+              {/* Vendor Promo Row (Avails promo price deduction; hides internal coupon code) */}
+              {discountAmount > 0 && (
+                <tr className="border-b border-black font-semibold" style={{ backgroundColor: '#f0fdf4' }}>
+                  <td colSpan={4} className="border border-black"></td>
+                  <td className="border border-black px-3 py-1.5 text-right font-bold text-emerald-800">
+                    Vendor Promo:
+                  </td>
+                  <td className="border border-black px-3 py-1.5 text-right font-bold text-emerald-800">
+                    -₹{discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              )}
 
               {/* CGST (9%) Row */}
               <tr className="border-b border-black font-semibold">

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { Badge, Button } from '@figma/astraui';
 import {
   X, Edit3, Package, Clock, CheckCircle, XCircle, Plus, Minus, Trash2,
-  FileText, Download, Printer, ShieldCheck, AlertCircle
+  FileText, Download, Printer, ShieldCheck, AlertCircle, Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -156,6 +156,17 @@ export function OrdersPage() {
 
   const handleSaveEdit = async () => {
     if (!editingOrder || !accessToken) return;
+
+    // Strict 5-minute edit window check for non-admin users
+    if (user?.role !== 'admin') {
+      const elapsed = Date.now() - new Date(editingOrder.createdAt).getTime();
+      if (elapsed > 5 * 60 * 1000) {
+        toast('Edit window has closed (5 minutes limit expired). Order can no longer be modified.');
+        setEditingOrder(null);
+        return;
+      }
+    }
+
     setIsSavingEdit(true);
 
     const editedTotal = editedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -187,12 +198,13 @@ export function OrdersPage() {
     return order.status === 'pending' && withinOneMin;
   };
 
+  // Strictly 5 minutes from order placement, irrespective of payment status
   const canEditOrder = (order: Order) => {
     if (user?.role === 'admin') {
       return order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'delivered';
     }
-    const withinOneMin = (now - new Date(order.createdAt).getTime()) <= (1 * 60 * 1000);
-    return order.status === 'pending' && order.paymentStatus === 'pending' && withinOneMin;
+    const withinFiveMin = (now - new Date(order.createdAt).getTime()) <= (5 * 60 * 1000);
+    return order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'delivered' && withinFiveMin;
   };
 
   const getStatusBadgeVariant = (status: string) => {
@@ -391,12 +403,12 @@ export function OrdersPage() {
                           )}
                         </div>
                       </div>
-                      {order.couponCode && (
+                      {((order.total - order.discountedTotal > 0) || order.couponCode) && (
                         <div className="flex justify-between text-sm">
-                          <span style={{ color: 'var(--color-muted-foreground)' }}>
-                            Discount ({order.couponCode})
+                          <span className="font-medium text-emerald-400">
+                            Vendor Promo
                           </span>
-                          <span style={{ color: 'var(--color-primary)' }}>
+                          <span className="font-bold text-emerald-400">
                             -{formatCurrency(order.total - order.discountedTotal)}
                           </span>
                         </div>
@@ -558,10 +570,21 @@ export function OrdersPage() {
                           {cancellingOrder === order.id ? 'Cancelling...' : 'Cancel Order'}
                         </Button>
                       )}
-                      {user?.role !== 'admin' && (canEditOrder(order) || canCancelOrder(order)) && (
-                        <div className="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-[var(--radius-md)] border border-amber-500/20 bg-amber-500/10 text-amber-500 animate-pulse font-medium">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>Modifications lock in {Math.max(0, Math.ceil((60000 - (now - new Date(order.createdAt).getTime())) / 1000))}s</span>
+                      {user?.role !== 'admin' && canEditOrder(order) && (() => {
+                        const remainingSecs = Math.max(0, Math.ceil(((5 * 60 * 1000) - (now - new Date(order.createdAt).getTime())) / 1000));
+                        const minsLeft = Math.floor(remainingSecs / 60);
+                        const secsLeft = remainingSecs % 60;
+                        return (
+                          <div className="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-[var(--radius-md)] border border-amber-500/25 bg-amber-500/10 text-amber-400 font-mono font-medium">
+                            <Clock className="w-3.5 h-3.5 animate-pulse" />
+                            <span>Edit window: {minsLeft}m {secsLeft < 10 ? `0${secsLeft}` : secsLeft}s left</span>
+                          </div>
+                        );
+                      })()}
+                      {user?.role !== 'admin' && !canEditOrder(order) && order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'delivered' && (
+                        <div className="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-[var(--radius-md)] border border-zinc-800 bg-zinc-900/80 text-zinc-400 font-mono">
+                          <Lock className="w-3.5 h-3.5 text-zinc-500" />
+                          <span>Edit window closed (5m expired)</span>
                         </div>
                       )}
                       {order.status === 'completed' && (
@@ -618,13 +641,26 @@ export function OrdersPage() {
                     Order #{editingOrder.id.split(':')[1].slice(0, 8)}
                   </p>
                 </div>
-                <button
-                  onClick={() => setEditingOrder(null)}
-                  className="p-1.5 rounded-full hover:bg-[var(--color-muted)] transition-colors"
-                  style={{ color: 'var(--color-muted-foreground)' }}
-                >
-                  <X size={20} />
-                </button>
+                <div className="flex items-center gap-3">
+                  {user?.role !== 'admin' && (() => {
+                    const remainingSecs = Math.max(0, Math.ceil(((5 * 60 * 1000) - (now - new Date(editingOrder.createdAt).getTime())) / 1000));
+                    const minsLeft = Math.floor(remainingSecs / 60);
+                    const secsLeft = remainingSecs % 60;
+                    return (
+                      <div className="text-xs px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono flex items-center gap-1.5">
+                        <Clock size={12} className="animate-pulse" />
+                        <span>{minsLeft}m {secsLeft < 10 ? `0${secsLeft}` : secsLeft}s left</span>
+                      </div>
+                    );
+                  })()}
+                  <button
+                    onClick={() => setEditingOrder(null)}
+                    className="p-1.5 rounded-full hover:bg-[var(--color-muted)] transition-colors"
+                    style={{ color: 'var(--color-muted-foreground)' }}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
 
               {/* Items List */}
@@ -700,12 +736,12 @@ export function OrdersPage() {
                           {formatCurrency(editedTotal)}
                         </span>
                       </div>
-                      {editingOrder.couponCode && (
+                      {((editedTotal - editedDiscountedTotal > 0) || editingOrder.couponCode) && (
                         <div className="flex justify-between text-sm">
-                          <span style={{ color: 'var(--color-muted-foreground)' }}>
-                            Discount ({editingOrder.couponCode})
+                          <span className="font-medium text-emerald-400">
+                            Vendor Promo
                           </span>
-                          <span className="font-medium" style={{ color: 'var(--color-primary)' }}>
+                          <span className="font-medium text-emerald-400">
                             -{formatCurrency(editedDiscountAmount)}
                           </span>
                         </div>
